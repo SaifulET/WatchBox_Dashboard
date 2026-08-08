@@ -1,7 +1,14 @@
-import React, { useState, useRef } from 'react';
+import { useRef, useState } from 'react';
+import { Alert, Form, message } from 'antd';
 import { FiEye, FiEyeOff, FiImage, FiTrash2 } from 'react-icons/fi';
+import { useAuthStore } from '../../store/authStore';
 
 const CreateAdmin = () => {
+  const [form] = Form.useForm();
+  const registerAdmin = useAuthStore((state) => state.registerAdmin);
+  const loading = useAuthStore((state) => state.loading);
+  const error = useAuthStore((state) => state.error);
+  const clearError = useAuthStore((state) => state.clearError);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
@@ -26,6 +33,24 @@ const CreateAdmin = () => {
     }
   };
 
+  const handleSubmit = async (values) => {
+    try {
+      await registerAdmin({
+        displayName: values.displayName,
+        email: values.email,
+        password: values.password,
+      });
+      form.resetFields();
+      setImagePreview(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      message.success('Admin created successfully.');
+    } catch (submitError) {
+      message.error(submitError.message);
+    }
+  };
+
   return (
     <div className="p-8 bg-[#fdfdfd] min-h-screen font-sans mt-16 flex justify-center">
       <div className="w-full max-w-6xl bg-white rounded-xl shadow-sm border border-gray-200 overflow-hidden h-fit">
@@ -36,26 +61,54 @@ const CreateAdmin = () => {
 
         {/* Form Content */}
         <div className="p-8">
-          <form className="flex flex-col gap-6">
+          <Form
+            form={form}
+            className="flex flex-col gap-6"
+            layout="vertical"
+            onFinish={handleSubmit}
+            onValuesChange={clearError}
+            requiredMark={false}
+          >
+            {error && (
+              <Alert message={error} showIcon type="error" />
+            )}
 
             {/* Name */}
             <div>
               <label className="block text-[13px] text-gray-700 font-medium mb-2">Name</label>
-              <input
-                type="text"
-                placeholder="Jhon doe"
-                className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-[#002B49] transition-colors"
-              />
+              <Form.Item
+                name="displayName"
+                rules={[
+                  { required: true, message: 'Please enter admin name.' },
+                  { min: 2, message: 'Name must be at least 2 characters.' },
+                ]}
+                className="mb-0"
+              >
+                <input
+                  type="text"
+                  placeholder="John Doe"
+                  className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-[#002B49] transition-colors"
+                />
+              </Form.Item>
             </div>
 
             {/* Email */}
             <div>
               <label className="block text-[13px] text-gray-700 font-medium mb-2">Email</label>
-              <input
-                type="email"
-                placeholder="abc@gmail.com"
-                className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-[#002B49] transition-colors"
-              />
+              <Form.Item
+                name="email"
+                rules={[
+                  { required: true, message: 'Please enter admin email.' },
+                  { type: 'email', message: 'Please enter a valid email.' },
+                ]}
+                className="mb-0"
+              >
+                <input
+                  type="email"
+                  placeholder="admin@example.com"
+                  className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-[#002B49] transition-colors"
+                />
+              </Form.Item>
             </div>
 
             {/* Passwords */}
@@ -63,11 +116,20 @@ const CreateAdmin = () => {
               <div>
                 <label className="block text-[13px] text-gray-700 font-medium mb-2">New Password</label>
                 <div className="relative">
-                  <input
-                    type={showPassword ? "text" : "password"}
-                    placeholder="********"
-                    className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-[#002B49] transition-colors pr-10"
-                  />
+                  <Form.Item
+                    name="password"
+                    rules={[
+                      { required: true, message: 'Please enter a password.' },
+                      { min: 8, message: 'Password must be at least 8 characters.' },
+                    ]}
+                    className="mb-0 w-full"
+                  >
+                    <input
+                      type={showPassword ? "text" : "password"}
+                      placeholder="********"
+                      className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-[#002B49] transition-colors pr-10"
+                    />
+                  </Form.Item>
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
@@ -81,11 +143,28 @@ const CreateAdmin = () => {
               <div>
                 <label className="block text-[13px] text-gray-700 font-medium mb-2">Confirm New Password</label>
                 <div className="relative">
-                  <input
-                    type={showConfirmPassword ? "text" : "password"}
-                    placeholder="********"
-                    className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-[#002B49] transition-colors pr-10"
-                  />
+                  <Form.Item
+                    name="confirmPassword"
+                    dependencies={['password']}
+                    rules={[
+                      { required: true, message: 'Please confirm the password.' },
+                      ({ getFieldValue }) => ({
+                        validator(_, value) {
+                          if (!value || getFieldValue('password') === value) {
+                            return Promise.resolve();
+                          }
+                          return Promise.reject(new Error('Passwords do not match.'));
+                        },
+                      }),
+                    ]}
+                    className="mb-0 w-full"
+                  >
+                    <input
+                      type={showConfirmPassword ? "text" : "password"}
+                      placeholder="********"
+                      className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-[#002B49] transition-colors pr-10"
+                    />
+                  </Form.Item>
                   <button
                     type="button"
                     onClick={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -138,14 +217,15 @@ const CreateAdmin = () => {
             {/* Submit Button */}
             <div className="mt-4 flex justify-center">
               <button
-                type="button"
-                className="bg-[#002B49] text-white font-bold text-[14px] px-12 py-3 rounded-md hover:bg-[#002B49]/90 transition-colors w-full max-w-sm shadow-sm"
+                type="submit"
+                disabled={loading}
+                className="bg-[#002B49] text-white font-bold text-[14px] px-12 py-3 rounded-md hover:bg-[#002B49]/90 transition-colors w-full max-w-sm shadow-sm disabled:opacity-70"
               >
-                Create Admin
+                {loading ? 'Creating...' : 'Create Admin'}
               </button>
             </div>
 
-          </form>
+          </Form>
         </div>
       </div>
     </div>

@@ -1,29 +1,53 @@
-import React, { useState, useRef } from 'react';
+import { useEffect, useState } from 'react';
+import { Alert, message } from 'antd';
 import { FiArrowLeft } from 'react-icons/fi';
-import { useNavigate } from 'react-router-dom';
+import { useLocation, useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
 
 const VerifyOtp = () => {
+  const location = useLocation();
   const navigate = useNavigate();
-  const [otp, setOtp] = useState(['', '', '', '']);
-  const inputRefs = [useRef(), useRef(), useRef(), useRef()];
+  const storedEmail = useAuthStore((state) => state.passwordResetEmail);
+  const storedToken = useAuthStore((state) => state.passwordResetToken);
+  const verifyResetCode = useAuthStore((state) => state.verifyResetCode);
+  const forgotPassword = useAuthStore((state) => state.forgotPassword);
+  const loading = useAuthStore((state) => state.loading);
+  const error = useAuthStore((state) => state.error);
+  const clearError = useAuthStore((state) => state.clearError);
+  const email = location.state?.email || storedEmail;
+  const [token, setToken] = useState(location.state?.token || storedToken || '');
 
-  const handleChange = (index, value) => {
-    if (isNaN(value)) return;
-    
-    const newOtp = [...otp];
-    newOtp[index] = value;
-    setOtp(newOtp);
+  useEffect(() => {
+    if (location.state?.token || storedToken) {
+      setToken(location.state?.token || storedToken);
+    }
+  }, [location.state?.token, storedToken]);
 
-    // Move to next input
-    if (value !== '' && index < 3) {
-      inputRefs[index + 1].current.focus();
+  const handleResend = async () => {
+    if (!email) {
+      message.warning('Enter your email again to request a new reset code.');
+      navigate('/settings/forgot-password');
+      return;
+    }
+
+    try {
+      const result = await forgotPassword(email);
+      if (result?.developmentToken) {
+        setToken(result.developmentToken);
+      }
+      message.success('Reset code sent again.');
+    } catch (resendError) {
+      message.error(resendError.message);
     }
   };
 
-  const handleKeyDown = (index, e) => {
-    // Move to previous input on backspace
-    if (e.key === 'Backspace' && index > 0 && otp[index] === '') {
-      inputRefs[index - 1].current.focus();
+  const handleVerify = async () => {
+    try {
+      await verifyResetCode(token.trim());
+      message.success('Reset code verified.');
+      navigate('/new-password', { state: { token: token.trim() } });
+    } catch (verifyError) {
+      message.error(verifyError.message);
     }
   };
 
@@ -46,37 +70,48 @@ const VerifyOtp = () => {
           
           <p className="text-[16px] text-[#333] font-medium leading-relaxed text-center">
             Please check your email. We have sent a code to<br/>
-            contact @gmail.com
+            {email || 'your admin email'}
           </p>
 
-          {/* OTP Inputs */}
-          <div className="flex justify-center gap-4 mt-4">
-            {otp.map((digit, index) => (
-              <input
-                key={index}
-                ref={inputRefs[index]}
-                type="text"
-                maxLength={1}
-                value={digit}
-                onChange={(e) => handleChange(index, e.target.value)}
-                onKeyDown={(e) => handleKeyDown(index, e)}
-                className="w-14 h-14 border border-[#8da4b5] rounded-md text-center text-[24px] font-medium outline-none focus:border-[#002B49] focus:ring-1 focus:ring-[#002B49] transition-all"
-              />
-            ))}
+          {error && (
+            <Alert message={error} showIcon type="error" />
+          )}
+
+          <div>
+            <label className="block text-[15px] text-[#333] font-medium mb-2">Reset Code</label>
+            <input
+              type="text"
+              value={token}
+              onChange={(event) => {
+                clearError();
+                setToken(event.target.value);
+              }}
+              placeholder="Paste the reset code from your email"
+              className="w-full border border-gray-300 rounded-md px-4 py-3 text-[14px] outline-none focus:border-[#002B49] transition-colors"
+            />
           </div>
 
           {/* Resend Link */}
           <div className="flex justify-between items-center w-full max-w-[340px] mx-auto mt-2">
             <span className="text-[13px] text-gray-500 font-medium">Didn't receive code?</span>
-            <button className="text-[#333] text-[13px] font-medium hover:underline focus:outline-none underline">
+            <button
+              type="button"
+              onClick={handleResend}
+              className="text-[#333] text-[13px] font-medium hover:underline focus:outline-none underline"
+            >
               Resend
             </button>
           </div>
 
           {/* Verify Button */}
           <div className="flex justify-center mt-4">
-            <button className="w-full max-w-[500px] bg-[#002B49] text-white rounded-md py-3 text-[15px] font-bold hover:bg-[#002B49]/90 transition-colors shadow-sm">
-              Verify
+            <button
+              type="button"
+              onClick={handleVerify}
+              disabled={loading || !token}
+              className="w-full max-w-[500px] bg-[#002B49] text-white rounded-md py-3 text-[15px] font-bold hover:bg-[#002B49]/90 transition-colors shadow-sm disabled:opacity-70"
+            >
+              {loading ? 'Verifying...' : 'Verify'}
             </button>
           </div>
           

@@ -1,42 +1,58 @@
-import React, { useState, useRef, useEffect } from "react";
-import { useNavigate, Link } from "react-router-dom";
+import { useEffect, useState } from "react";
+import { Alert, message } from "antd";
+import { useLocation, useNavigate, Link } from "react-router-dom";
 import watchBg from "../../../assets/image/luxury_watch_bg.png";
+import { useAuthStore } from "../../../store/authStore";
 
 const VerifyCode = () => {
-  const [code, setCode] = useState(["", "", "", "", ""]);
-  const inputRefs = useRef([]);
+  const location = useLocation();
   const navigate = useNavigate();
+  const storedEmail = useAuthStore((state) => state.passwordResetEmail);
+  const storedToken = useAuthStore((state) => state.passwordResetToken);
+  const verifyResetCode = useAuthStore((state) => state.verifyResetCode);
+  const forgotPassword = useAuthStore((state) => state.forgotPassword);
+  const loading = useAuthStore((state) => state.loading);
+  const error = useAuthStore((state) => state.error);
+  const clearError = useAuthStore((state) => state.clearError);
+  const email = location.state?.email || storedEmail;
+  const [token, setToken] = useState(location.state?.token || storedToken || "");
 
   useEffect(() => {
-    inputRefs.current = inputRefs.current.slice(0, 5);
-  }, []);
+    if (location.state?.token || storedToken) {
+      setToken(location.state?.token || storedToken);
+    }
+  }, [location.state?.token, storedToken]);
 
-  const handleChange = (index, value) => {
-    if (value && !/^\d+$/.test(value)) return;
-    const newCode = [...code];
-    newCode[index] = value.slice(0, 1);
-    setCode(newCode);
-    if (value && index < 4) {
-      inputRefs.current[index + 1]?.focus();
+  const handleResend = async (e) => {
+    e.preventDefault();
+    if (!email) {
+      message.warning("Enter your email again to request a new reset code.");
+      navigate("/forgate-password");
+      return;
+    }
+
+    try {
+      const result = await forgotPassword(email);
+      if (result?.developmentToken) {
+        setToken(result.developmentToken);
+      }
+      message.success("Reset code sent again.");
+    } catch (resendError) {
+      message.error(resendError.message);
     }
   };
 
-  const handleKeyDown = (index, e) => {
-    if (e.key === "Backspace" && !code[index] && index > 0) {
-      inputRefs.current[index - 1]?.focus();
+  const handleVerify = async (e) => {
+    e.preventDefault();
+    clearError();
+
+    try {
+      await verifyResetCode(token.trim());
+      message.success("Reset code verified.");
+      navigate("/new-password", { state: { token: token.trim() } });
+    } catch (verifyError) {
+      message.error(verifyError.message);
     }
-  };
-
-  const handleResend = (e) => {
-    e.preventDefault();
-    alert("Verification code resent!");
-  };
-
-  const handleVerify = (e) => {
-    e.preventDefault();
-    const verificationCode = code.join("");
-    navigate("/new-password");
-    alert(`Verifying code: ${verificationCode}`);
   };
 
   return (
@@ -86,27 +102,31 @@ const VerifyCode = () => {
                 VERIFY YOUR CODE
               </h2>
               <p className="text-xs text-gray-400 mt-1.5 font-medium leading-relaxed">
-                We sent a reset code to your email. Enter the 5-digit code to proceed.
+                We sent a reset code to your email. Enter it to proceed.
               </p>
             </div>
 
             <form onSubmit={handleVerify}>
-              {/* Digit Code Fields */}
-              <div className="flex justify-center gap-2.5 mb-6">
-                {[0, 1, 2, 3, 4].map((index) => (
-                  <input
-                    key={index}
-                    ref={(el) => (inputRefs.current[index] = el)}
-                    type="text"
-                    value={code[index]}
-                    onChange={(e) => handleChange(index, e.target.value)}
-                    onKeyDown={(e) => handleKeyDown(index, e)}
-                    className="w-11 h-11 text-lg font-bold text-center text-gray-800 bg-white border border-gray-200 rounded-lg hover:border-gray-300 focus:border-sky-500 focus:shadow-[0_0_0_2px_rgba(56,189,248,0.15)] transition-all outline-none"
-                    maxLength={1}
-                    inputMode="numeric"
-                    autoComplete="one-time-code"
-                  />
-                ))}
+              {error && (
+                <Alert className="mb-4 text-xs" message={error} showIcon type="error" />
+              )}
+
+              <div className="mb-6">
+                <label className="block text-[10px] font-semibold text-gray-400 tracking-wider uppercase mb-1.5 text-left">
+                  RESET CODE
+                </label>
+                <input
+                  type="text"
+                  value={token}
+                  onChange={(e) => {
+                    clearError();
+                    setToken(e.target.value);
+                  }}
+                  className="w-full h-11 px-4 text-xs text-gray-800 placeholder-gray-300 bg-white border border-gray-200 rounded-lg hover:border-gray-300 focus:border-sky-500 focus:shadow-[0_0_0_2px_rgba(56,189,248,0.15)] transition-all outline-none"
+                  placeholder="Paste the reset code from your email"
+                  autoComplete="one-time-code"
+                  required
+                />
               </div>
 
               {/* Resend Actions */}
@@ -125,8 +145,9 @@ const VerifyCode = () => {
               <button
                 type="submit"
                 className="relative flex items-center justify-center gap-2 w-full h-11 bg-[#092C4C] hover:bg-[#061F36] active:bg-[#031120] text-white font-medium text-xs rounded-lg transition-colors shadow-sm focus:outline-none"
+                disabled={loading}
               >
-                Verify Code
+                {loading ? "Verifying..." : "Verify Code"}
                 <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
                   <line x1="5" y1="12" x2="19" y2="12" />
                   <polyline points="12 5 19 12 12 19" />

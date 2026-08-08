@@ -1,20 +1,26 @@
-import React, { useState } from "react";
 import { Form, message } from "antd";
 import { useNavigate, Link } from "react-router-dom";
 import watchBg from "../../../assets/image/luxury_watch_bg.png";
+import { useAuthStore } from "../../../store/authStore";
 
 const ForgatePassword = () => {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
+  const forgotPassword = useAuthStore((state) => state.forgotPassword);
+  const loading = useAuthStore((state) => state.loading);
 
-  const onFinish = (values) => {
-    setLoading(true);
-    // Simulate sending reset email
-    setTimeout(() => {
+  const onFinish = async (values) => {
+    try {
+      const result = await forgotPassword(values.email);
       message.success("Reset instructions sent to your email!");
-      setLoading(false);
-      navigate("/verify-code");
-    }, 1000);
+      navigate("/verify-code", {
+        state: {
+          email: values.email,
+          token: result?.developmentToken || null,
+        },
+      });
+    } catch (error) {
+      message.error(error.message);
+    }
   };
 
   return (
@@ -79,25 +85,24 @@ const ForgatePassword = () => {
                 <label className="block text-[10px] font-semibold text-gray-400 tracking-wider uppercase mb-1.5 text-left">
                   EMAIL ADDRESS
                 </label>
-                <Form.Item
-                  name="email"
-                  rules={[
-                    { required: true, message: "Please input your email!" },
-                    { type: "email", message: "Please enter a valid email!" },
-                  ]}
-                  className="mb-0"
-                >
-                  <div className="relative flex items-center">
-                    {/* Envelope Icon */}
-                    <svg className="absolute left-3.5 w-4 h-4 text-gray-300 pointer-events-none" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
-                    </svg>
+                <div className="relative flex items-center">
+                  <svg className="absolute left-3.5 w-4 h-4 text-gray-300 pointer-events-none z-10" fill="none" stroke="currentColor" strokeWidth="2" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
+                  </svg>
+                  <Form.Item
+                    name="email"
+                    rules={[
+                      { required: true, message: "Please input your email!" },
+                      { type: "email", message: "Please enter a valid email!" },
+                    ]}
+                    className="mb-0 w-full"
+                  >
                     <input
                       placeholder="collector@horology.com"
                       className="w-full h-11 pl-10 pr-4 text-xs text-gray-800 placeholder-gray-300 bg-white border border-gray-200 rounded-lg hover:border-gray-300 focus:border-sky-500 focus:shadow-[0_0_0_2px_rgba(56,189,248,0.15)] transition-all outline-none"
                     />
-                  </div>
-                </Form.Item>
+                  </Form.Item>
+                </div>
               </div>
 
               {/* Submit Button */}

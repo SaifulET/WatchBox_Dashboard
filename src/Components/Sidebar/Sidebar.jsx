@@ -1,4 +1,4 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import mainLogo from "../../assets/image/mainlogo.png";
 import {
   LayoutGrid,
@@ -11,13 +11,21 @@ import {
   UserPlus,
   FileBarChart2,
   Mail,
-  Sliders,
   Settings,
   LogOut
 } from "lucide-react";
+import { useAuthStore } from "../../store/authStore";
 
 const Sidebar = ({ closeDrawer }) => {
   const location = useLocation();
+  const navigate = useNavigate();
+  const logout = useAuthStore((state) => state.logout);
+
+  const handleLogout = async () => {
+    await logout();
+    closeDrawer?.();
+    navigate("/sign-in", { replace: true });
+  };
 
   const menuItems = [
     {
@@ -118,12 +126,14 @@ const Sidebar = ({ closeDrawer }) => {
 
       {/* Footer Log out */}
       <div className="p-4 border-t border-gray-100 bg-white">
-        <Link to="/sign-in" onClick={closeDrawer}>
-          <div className="flex items-center gap-3.5 px-4 py-2.5 rounded-lg text-xs font-bold text-rose-500 hover:bg-rose-50/50 transition-all cursor-pointer">
-            <LogOut className="w-4 h-4 text-rose-400" />
-            <span>Logout</span>
-          </div>
-        </Link>
+        <button
+          type="button"
+          onClick={handleLogout}
+          className="flex items-center w-full gap-3.5 px-4 py-2.5 rounded-lg text-xs font-bold text-rose-500 hover:bg-rose-50/50 transition-all cursor-pointer"
+        >
+          <LogOut className="w-4 h-4 text-rose-400" />
+          <span>Logout</span>
+        </button>
       </div>
     </div>
   );

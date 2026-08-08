@@ -1,40 +1,36 @@
-import { Checkbox, Form, Typography } from "antd";
+import { Alert, Checkbox, Form } from "antd";
 import { Link, useNavigate } from "react-router-dom";
 import { useState } from "react";
 import { FaRegEye, FaRegEyeSlash } from "react-icons/fa";
 import watchBg from "../../../assets/image/luxury_watch_bg.png";
+import { useAuthStore } from "../../../store/authStore";
 
 const SignIn = () => {
   const navigate = useNavigate();
-  const [showpassword, setShowpassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const [showPassword, setShowPassword] = useState(false);
+  const login = useAuthStore((state) => state.login);
+  const loading = useAuthStore((state) => state.loading);
+  const error = useAuthStore((state) => state.error);
+  const clearError = useAuthStore((state) => state.clearError);
 
-  const togglePasswordVisibility = () => {
-    setShowpassword(!showpassword);
-  };
-
-  const onFinish = (values) => {
-    setLoading(true);
-    // Simulating login without actual API call
-    setTimeout(() => {
-      setLoading(false);
+  const onFinish = async (values) => {
+    try {
+      await login(values);
       navigate("/dashboard");
-    }, 1500);
+    } catch {
+      // The store exposes the API error message for the alert below.
+    }
   };
 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 min-h-screen w-full bg-white font-sans">
-      {/* Left Panel - Watch Background & Text */}
       <div
         className="relative hidden md:flex flex-col justify-between p-12 bg-cover bg-center text-white min-h-screen select-none"
         style={{ backgroundImage: `url(${watchBg})` }}
       >
-        {/* Dark overlay for readability */}
         <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/40 to-black/60 z-0 pointer-events-none" />
 
-        {/* Top Logo */}
         <div className="relative z-10 flex items-center gap-2">
-          {/* Diamond SVG Logo */}
           <svg className="w-5 h-5 text-sky-400" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
             <polygon points="12 2 22 12 12 22 2 12" />
             <line x1="2" y1="12" x2="22" y2="12" />
@@ -42,7 +38,6 @@ const SignIn = () => {
           <span className="text-md font-bold tracking-widest text-white uppercase">CHRONOCORE</span>
         </div>
 
-        {/* Middle/Bottom Typography */}
         <div className="relative z-10 max-w-md mt-auto mb-16">
           <h1 className="text-4xl font-semibold leading-tight text-white mb-3">
             The Authority in <br />Horology
@@ -52,13 +47,11 @@ const SignIn = () => {
           </p>
         </div>
 
-        {/* Bottom Footer */}
         <div className="relative z-10 text-[9px] text-gray-400 font-medium tracking-widest uppercase">
-          © 2026 HOROLOGICAL AUTHORITY. ALL RIGHTS RESERVED.
+          (c) 2026 HOROLOGICAL AUTHORITY. ALL RIGHTS RESERVED.
         </div>
       </div>
 
-      {/* Right Panel - Form */}
       <div className="flex items-center justify-center p-8 md:p-16 lg:p-24 bg-white min-h-screen">
         <div className="w-full max-w-sm">
           <div className="mb-8">
@@ -76,8 +69,17 @@ const SignIn = () => {
             onFinish={onFinish}
             layout="vertical"
             requiredMark={false}
+            onValuesChange={clearError}
           >
-            {/* Email Field */}
+            {error && (
+              <Alert
+                className="mb-4 text-xs"
+                message={error}
+                showIcon
+                type="error"
+              />
+            )}
+
             <div className="mb-4">
               <label className="block text-[10px] font-semibold text-gray-400 tracking-wider uppercase mb-1.5">
                 EMAIL ADDRESS
@@ -86,7 +88,7 @@ const SignIn = () => {
                 name="email"
                 rules={[
                   { required: true, message: "Please input your email!" },
-                  { type: "email", message: "Please enter a valid email!" }
+                  { type: "email", message: "Please enter a valid email!" },
                 ]}
                 className="mb-0"
               >
@@ -97,7 +99,6 @@ const SignIn = () => {
               </Form.Item>
             </div>
 
-            {/* Password Field */}
             <div className="mb-5">
               <div className="flex items-center justify-between mb-1.5">
                 <label className="block text-[10px] font-semibold text-gray-400 tracking-wider uppercase">
@@ -110,33 +111,32 @@ const SignIn = () => {
                   Forgot password?
                 </Link>
               </div>
-              <Form.Item
-                name="password"
-                rules={[{ required: true, message: "Please input your password!" }]}
-                className="mb-0"
-              >
-                <div className="relative flex items-center">
+              <div className="relative flex items-center">
+                <Form.Item
+                  name="password"
+                  rules={[{ required: true, message: "Please input your password!" }]}
+                  className="mb-0 w-full"
+                >
                   <input
                     className="w-full h-11 pl-4 pr-11 text-xs text-gray-800 placeholder-gray-300 bg-white border border-gray-200 rounded-lg hover:border-gray-300 focus:border-sky-500 focus:shadow-[0_0_0_2px_rgba(56,189,248,0.15)] transition-all outline-none"
-                    type={showpassword ? "text" : "password"}
-                    placeholder="••••••••"
+                    type={showPassword ? "text" : "password"}
+                    placeholder="********"
                   />
-                  <button
-                    onClick={togglePasswordVisibility}
-                    type="button"
-                    className="absolute right-3.5 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
-                  >
-                    {showpassword ? (
-                      <FaRegEye className="w-4 h-4" />
-                    ) : (
-                      <FaRegEyeSlash className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </Form.Item>
+                </Form.Item>
+                <button
+                  onClick={() => setShowPassword((value) => !value)}
+                  type="button"
+                  className="absolute right-3.5 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                >
+                  {showPassword ? (
+                    <FaRegEye className="w-4 h-4" />
+                  ) : (
+                    <FaRegEyeSlash className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
-            {/* Remember Me */}
             <div className="flex items-center justify-between mb-5">
               <Form.Item name="remember" valuePropName="checked" noStyle>
                 <Checkbox className="text-xs text-gray-400 hover:text-gray-500 select-none">
@@ -145,7 +145,6 @@ const SignIn = () => {
               </Form.Item>
             </div>
 
-            {/* Action Button */}
             <Form.Item className="mb-6">
               <button
                 className="relative flex items-center justify-center gap-2 w-full h-11 bg-[#092C4C] hover:bg-[#061F36] active:bg-[#031120] text-white font-medium text-xs rounded-lg transition-colors shadow-sm focus:outline-none"
@@ -173,7 +172,6 @@ const SignIn = () => {
             </Form.Item>
           </Form>
 
-          {/* Need help footer */}
           <div className="text-center mt-8">
             <span className="text-[11px] text-gray-400 font-medium">
               Need technical assistance?{" "}

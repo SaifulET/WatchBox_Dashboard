@@ -1,9 +1,29 @@
-import React from 'react';
+import { useState } from 'react';
+import { message } from 'antd';
 import { FiArrowLeft } from 'react-icons/fi';
 import { useNavigate } from 'react-router-dom';
+import { useAuthStore } from '../../store/authStore';
 
 const ForgotPassword = () => {
   const navigate = useNavigate();
+  const forgotPassword = useAuthStore((state) => state.forgotPassword);
+  const loading = useAuthStore((state) => state.loading);
+  const [email, setEmail] = useState('');
+
+  const handleSubmit = async () => {
+    try {
+      const result = await forgotPassword(email);
+      message.success('Reset instructions sent to your email.');
+      navigate('/settings/verify-otp', {
+        state: {
+          email,
+          token: result?.developmentToken || null,
+        },
+      });
+    } catch (error) {
+      message.error(error.message);
+    }
+  };
 
   return (
     <div className="p-8 bg-[#fdfdfd] min-h-screen font-sans mt-16 flex justify-center">
@@ -32,6 +52,8 @@ const ForgotPassword = () => {
             <label className="block text-[15px] text-[#333] font-medium mb-2">Email</label>
             <input 
               type="email" 
+              value={email}
+              onChange={(event) => setEmail(event.target.value)}
               placeholder="Enter your email"
               className="w-full border border-gray-300 rounded-md px-4 py-3 text-[14px] outline-none focus:border-[#002B49] transition-colors"
             />
@@ -39,10 +61,11 @@ const ForgotPassword = () => {
 
           {/* Submit Button */}
           <button 
-            onClick={() => navigate('/settings/verify-otp')}
-            className="w-full bg-[#002B49] text-white rounded-md py-3 mt-4 text-[15px] font-bold hover:bg-[#002B49]/90 transition-colors shadow-sm"
+            onClick={handleSubmit}
+            disabled={loading || !email}
+            className="w-full bg-[#002B49] text-white rounded-md py-3 mt-4 text-[15px] font-bold hover:bg-[#002B49]/90 transition-colors shadow-sm disabled:opacity-70"
           >
-            Get OTP
+            {loading ? 'Sending...' : 'Get Code'}
           </button>
           
         </div>

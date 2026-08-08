@@ -1,14 +1,22 @@
-import { Form, message } from "antd";
+import { Alert, Form, message } from "antd";
 import { FaRegEye, FaRegEyeSlash } from "react-icons/fa";
-import { Link, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { useState } from "react";
 import watchBg from "../../../assets/image/luxury_watch_bg.png";
+import { useAuthStore } from "../../../store/authStore";
 
 const NewPass = () => {
+  const location = useLocation();
   const navigate = useNavigate();
+  const [searchParams] = useSearchParams();
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [loading, setLoading] = useState(false);
+  const resetPassword = useAuthStore((state) => state.resetPassword);
+  const storedToken = useAuthStore((state) => state.passwordResetToken);
+  const loading = useAuthStore((state) => state.loading);
+  const error = useAuthStore((state) => state.error);
+  const clearError = useAuthStore((state) => state.clearError);
+  const token = searchParams.get("token") || location.state?.token || storedToken;
 
   const togglePasswordVisibility = () => {
     setShowPassword(!showPassword);
@@ -19,19 +27,15 @@ const NewPass = () => {
   };
 
   const onFinish = async (values) => {
-    setLoading(true);
     const { newPassword, confirmPassword } = values;
 
-    // Simulate API call
-    setTimeout(() => {
-      if (newPassword !== confirmPassword) {
-        message.error("Passwords do not match!");
-      } else {
-        message.success("Password changed successfully");
-        navigate("/sign-in");
-      }
-      setLoading(false);
-    }, 1000);
+    try {
+      await resetPassword({ token, newPassword, confirmPassword });
+      message.success("Password reset successfully.");
+      navigate("/sign-in");
+    } catch (resetError) {
+      message.error(resetError.message);
+    }
   };
 
   return (
@@ -90,36 +94,53 @@ const NewPass = () => {
             onFinish={onFinish}
             layout="vertical"
             requiredMark={false}
+            onValuesChange={clearError}
           >
+            {!token && (
+              <Alert
+                className="mb-4 text-xs"
+                message="Reset code is missing. Request a new password reset first."
+                showIcon
+                type="warning"
+              />
+            )}
+
+            {error && (
+              <Alert className="mb-4 text-xs" message={error} showIcon type="error" />
+            )}
+
             {/* New Password Field */}
             <div className="mb-4">
               <label className="block text-[10px] font-semibold text-gray-400 tracking-wider uppercase mb-1.5">
                 NEW PASSWORD
               </label>
-              <Form.Item
-                name="newPassword"
-                rules={[{ required: true, message: "Please input your new password!" }]}
-                className="mb-0"
-              >
-                <div className="relative flex items-center">
+              <div className="relative flex items-center">
+                <Form.Item
+                  name="newPassword"
+                  rules={[
+                    { required: true, message: "Please input your new password!" },
+                    { min: 8, message: "Password must be at least 8 characters." },
+                  ]}
+                  className="mb-0 w-full"
+                >
                   <input
                     className="w-full h-11 pl-4 pr-11 text-xs text-gray-800 placeholder-gray-300 bg-white border border-gray-200 rounded-lg hover:border-gray-300 focus:border-sky-500 focus:shadow-[0_0_0_2px_rgba(56,189,248,0.15)] transition-all outline-none"
                     type={showPassword ? "text" : "password"}
-                    placeholder="••••••••"
+                    placeholder="********"
                   />
-                  <button
-                    onClick={togglePasswordVisibility}
-                    type="button"
-                    className="absolute right-3.5 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
-                  >
-                    {showPassword ? (
-                      <FaRegEye className="w-4 h-4" />
-                    ) : (
-                      <FaRegEyeSlash className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </Form.Item>
+                </Form.Item>
+                <button
+                  onClick={togglePasswordVisibility}
+                  type="button"
+                  className="absolute right-3.5 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                >
+                  {showPassword ? (
+                    <FaRegEye className="w-4 h-4" />
+                  ) : (
+                    <FaRegEyeSlash className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Confirm Password Field */}
@@ -127,30 +148,41 @@ const NewPass = () => {
               <label className="block text-[10px] font-semibold text-gray-400 tracking-wider uppercase mb-1.5">
                 CONFIRM PASSWORD
               </label>
-              <Form.Item
-                name="confirmPassword"
-                rules={[{ required: true, message: "Please confirm your password!" }]}
-                className="mb-0"
-              >
-                <div className="relative flex items-center">
+              <div className="relative flex items-center">
+                <Form.Item
+                  name="confirmPassword"
+                  dependencies={["newPassword"]}
+                  rules={[
+                    { required: true, message: "Please confirm your password!" },
+                    ({ getFieldValue }) => ({
+                      validator(_, value) {
+                        if (!value || getFieldValue("newPassword") === value) {
+                          return Promise.resolve();
+                        }
+                        return Promise.reject(new Error("Passwords do not match."));
+                      },
+                    }),
+                  ]}
+                  className="mb-0 w-full"
+                >
                   <input
                     className="w-full h-11 pl-4 pr-11 text-xs text-gray-800 placeholder-gray-300 bg-white border border-gray-200 rounded-lg hover:border-gray-300 focus:border-sky-500 focus:shadow-[0_0_0_2px_rgba(56,189,248,0.15)] transition-all outline-none"
                     type={showConfirmPassword ? "text" : "password"}
-                    placeholder="••••••••"
+                    placeholder="********"
                   />
-                  <button
-                    onClick={toggleConfirmPasswordVisibility}
-                    type="button"
-                    className="absolute right-3.5 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
-                  >
-                    {showConfirmPassword ? (
-                      <FaRegEye className="w-4 h-4" />
-                    ) : (
-                      <FaRegEyeSlash className="w-4 h-4" />
-                    )}
-                  </button>
-                </div>
-              </Form.Item>
+                </Form.Item>
+                <button
+                  onClick={toggleConfirmPasswordVisibility}
+                  type="button"
+                  className="absolute right-3.5 text-gray-400 hover:text-gray-600 transition-colors focus:outline-none"
+                >
+                  {showConfirmPassword ? (
+                    <FaRegEye className="w-4 h-4" />
+                  ) : (
+                    <FaRegEyeSlash className="w-4 h-4" />
+                  )}
+                </button>
+              </div>
             </div>
 
             {/* Action Button */}
@@ -158,7 +190,7 @@ const NewPass = () => {
               <button
                 className="relative flex items-center justify-center gap-2 w-full h-11 bg-[#092C4C] hover:bg-[#061F36] active:bg-[#031120] text-white font-medium text-xs rounded-lg transition-colors shadow-sm focus:outline-none"
                 type="submit"
-                disabled={loading}
+                disabled={loading || !token}
               >
                 {loading ? (
                   <span className="flex items-center gap-2">
