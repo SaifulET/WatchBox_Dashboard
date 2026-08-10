@@ -1,22 +1,89 @@
-import { useRef, useState } from 'react';
-import { Alert, Form, message } from 'antd';
+import { useEffect, useMemo, useRef, useState } from 'react';
+import { Alert, Checkbox, Form, message, Spin } from 'antd';
 import { FiEye, FiEyeOff, FiImage, FiTrash2 } from 'react-icons/fi';
-import { useAuthStore } from '../../store/authStore';
+import { getApiErrorMessage } from '../../lib/api';
+import { adminAdministratorsApi } from '../../services/adminAdministratorsApi';
 
 const CreateAdmin = () => {
   const [form] = Form.useForm();
-  const registerAdmin = useAuthStore((state) => state.registerAdmin);
-  const loading = useAuthStore((state) => state.loading);
-  const error = useAuthStore((state) => state.error);
-  const clearError = useAuthStore((state) => state.clearError);
+  const [loading, setLoading] = useState(false);
+  const [metaLoading, setMetaLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [roles, setRoles] = useState([]);
+  const [permissions, setPermissions] = useState([]);
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [imagePreview, setImagePreview] = useState(null);
+  const [selectedImage, setSelectedImage] = useState(null);
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadAccessOptions = async () => {
+      setMetaLoading(true);
+      setError('');
+
+      try {
+        const [roleList, permissionList] = await Promise.all([
+          adminAdministratorsApi.listRoles(),
+          adminAdministratorsApi.listPermissions(),
+        ]);
+
+        if (!mounted) return;
+
+        const nextRoles = roleList || [];
+        setRoles(nextRoles);
+        setPermissions(permissionList || []);
+
+        const defaultRole = nextRoles.find((role) => role.code === 'OPERATIONS_ADMIN') || nextRoles[0];
+        if (defaultRole) {
+          form.setFieldsValue({
+            role: defaultRole.code,
+            permissions: defaultRole.permissions || [],
+          });
+        }
+      } catch (loadError) {
+        if (!mounted) return;
+        setError(getApiErrorMessage(loadError));
+      } finally {
+        if (mounted) {
+          setMetaLoading(false);
+        }
+      }
+    };
+
+    loadAccessOptions();
+
+    return () => {
+      mounted = false;
+    };
+  }, [form]);
+
+  const permissionsByGroup = useMemo(() => {
+    return permissions.reduce((groups, permission) => {
+      const group = permission.group || 'general';
+      return {
+        ...groups,
+        [group]: [...(groups[group] || []), permission],
+      };
+    }, {});
+  }, [permissions]);
+
+  const resetAccessFields = () => {
+    const defaultRole = roles.find((role) => role.code === 'OPERATIONS_ADMIN') || roles[0];
+    if (defaultRole) {
+      form.setFieldsValue({
+        role: defaultRole.code,
+        permissions: defaultRole.permissions || [],
+      });
+    }
+  };
 
   const handleImageChange = (e) => {
     const file = e.target.files[0];
     if (file) {
+      setSelectedImage(file);
       const reader = new FileReader();
       reader.onloadend = () => {
         setImagePreview(reader.result);
@@ -28,26 +95,50 @@ const CreateAdmin = () => {
   const handleRemoveImage = (e) => {
     e.stopPropagation(); // Prevent triggering the file input click
     setImagePreview(null);
+    setSelectedImage(null);
     if (fileInputRef.current) {
       fileInputRef.current.value = '';
     }
   };
 
+  const handleRoleChange = (event) => {
+    const role = roles.find((item) => item.code === event.target.value);
+    form.setFieldsValue({
+      role: event.target.value,
+      permissions: role?.permissions || [],
+    });
+  };
+
   const handleSubmit = async (values) => {
+    setLoading(true);
+    setError('');
+
     try {
-      await registerAdmin({
-        displayName: values.displayName,
-        email: values.email,
-        password: values.password,
-      });
+      const payload = new FormData();
+      payload.append('displayName', values.displayName);
+      payload.append('email', values.email);
+      payload.append('password', values.password);
+      payload.append('roles', JSON.stringify(values.role ? [values.role] : []));
+      payload.append('permissions', JSON.stringify(values.permissions || []));
+      if (selectedImage) {
+        payload.append('image', selectedImage);
+      }
+
+      await adminAdministratorsApi.createAdministrator(payload);
       form.resetFields();
       setImagePreview(null);
+      setSelectedImage(null);
       if (fileInputRef.current) {
         fileInputRef.current.value = '';
       }
       message.success('Admin created successfully.');
+      resetAccessFields();
     } catch (submitError) {
-      message.error(submitError.message);
+      const messageText = getApiErrorMessage(submitError);
+      setError(messageText);
+      message.error(messageText);
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -66,7 +157,7 @@ const CreateAdmin = () => {
             className="flex flex-col gap-6"
             layout="vertical"
             onFinish={handleSubmit}
-            onValuesChange={clearError}
+            onValuesChange={() => setError('')}
             requiredMark={false}
           >
             {error && (
@@ -109,6 +200,66 @@ const CreateAdmin = () => {
                   className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-[#002B49] transition-colors"
                 />
               </Form.Item>
+            </div>
+
+            {/* Role */}
+            <div>
+              <label className="block text-[13px] text-gray-700 font-medium mb-2">Role</label>
+              <Form.Item
+                name="role"
+                rules={[
+                  { required: true, message: 'Please select an admin role.' },
+                ]}
+                className="mb-0"
+              >
+                <select
+                  disabled={metaLoading}
+                  onChange={handleRoleChange}
+                  className="w-full border border-gray-300 rounded-md px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-[#002B49] transition-colors disabled:bg-gray-50"
+                >
+                  {roles.map((role) => (
+                    <option key={role.code} value={role.code}>
+                      {role.label}
+                    </option>
+                  ))}
+                </select>
+              </Form.Item>
+            </div>
+
+            {/* Permissions */}
+            <div>
+              <label className="block text-[13px] text-gray-700 font-medium mb-2">Permissions</label>
+              <div className="border border-gray-200 rounded-md p-4 bg-gray-50/60 min-h-32">
+                {metaLoading ? (
+                  <div className="h-24 flex items-center justify-center">
+                    <Spin />
+                  </div>
+                ) : (
+                  <Form.Item
+                    name="permissions"
+                    className="mb-0"
+                  >
+                    <Checkbox.Group className="w-full">
+                      <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
+                        {Object.entries(permissionsByGroup).map(([group, items]) => (
+                          <div key={group}>
+                            <p className="text-[11px] font-bold text-[#002B49] uppercase tracking-wide mb-2">
+                              {group}
+                            </p>
+                            <div className="flex flex-col gap-2">
+                              {items.map((permission) => (
+                                <Checkbox key={permission.code} value={permission.code}>
+                                  <span className="text-[13px] text-gray-700">{permission.label}</span>
+                                </Checkbox>
+                              ))}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </Checkbox.Group>
+                  </Form.Item>
+                )}
+              </div>
             </div>
 
             {/* Passwords */}

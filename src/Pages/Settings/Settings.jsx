@@ -9,7 +9,7 @@ const Settings = () => {
     { label: 'Change Password', path: '/settings/change-password' },
     { label: 'Privacy Policy', path: '/settings/privacy-policy' },
     { label: 'Terms & Conditions', path: '/settings/terms-conditions' },
-    { label: 'About Us', path: '#' },
+    { label: 'About Us', path: '/settings/about-us' },
   ];
 
   return (
@@ -25,9 +25,7 @@ const Settings = () => {
           {menuItems.map((item, index) => (
             <button
               key={index}
-              onClick={() => {
-                if (item.path !== '#') navigate(item.path);
-              }}
+              onClick={() => navigate(item.path)}
               className={`flex items-center justify-between px-4 py-4 hover:bg-gray-50 transition-colors ${index !== menuItems.length - 1 ? 'border-b border-gray-200' : ''
                 }`}
             >

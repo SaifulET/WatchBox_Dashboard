@@ -1,23 +1,99 @@
-import React, { useState, useRef } from 'react';
-import { 
-  FiSearch, FiSend, FiX, FiUploadCloud, FiFileText, FiTrash2,
-  FiBold, FiItalic, FiUnderline, FiAlignLeft, FiAlignCenter, FiAlignRight, FiLink, FiImage, FiCode
-} from 'react-icons/fi';
+import React, { useEffect, useRef, useState } from 'react';
+import { Alert, message } from 'antd';
+import { FiSearch, FiSend, FiX, FiUploadCloud, FiFileText, FiTrash2 } from 'react-icons/fi';
+import RichHtmlEditor from '../../Components/Editor/RichHtmlEditor';
+import { getApiErrorMessage } from '../../lib/api';
+import { adminBulkEmailApi } from '../../services/adminBulkEmailApi';
 
-const usersData = [
-  { id: 1, name: 'Alex Rivera', email: 'alex.r@enterprise.com', status: 'ACTIVE' },
-  { id: 2, name: 'Sarah Jenkins', email: 's.jenkins@globex.co', status: 'TRIAL' },
-  { id: 3, name: 'Marcus Thorne', email: 'm.thorne@startup.io', status: 'ACTIVE' },
-  { id: 4, name: 'Elena Rod', email: 'elena.rod@design.co', status: 'INACTIVE' },
-  { id: 5, name: 'Julian Kim', email: 'j.kim@techflow.net', status: 'ACTIVE' },
-];
+const defaultBody = `<p><strong>Hi there,</strong></p>
+<p>We've been working hard to bring you a better experience. In our latest update, we've introduced several key features designed to streamline your administrative workflow.</p>
+<ul>
+  <li><strong>Automated Reporting:</strong> Get insights delivered straight to your inbox every Monday.</li>
+  <li><strong>Smart Filters:</strong> Drill down into your user base with precision.</li>
+  <li><strong>Performance Boost:</strong> The dashboard now loads faster.</li>
+</ul>
+<p>Check out the new features today and let us know what you think!</p>
+<p>Best regards,<br/>The Modevin Team</p>`;
+const defaultSubject = 'Exciting New Updates to Your Workspace';
 
 const BulkEmail = () => {
-  const [selectedUsers, setSelectedUsers] = useState([usersData[0], usersData[2], usersData[4]]);
-  const [subject, setSubject] = useState('Exciting New Updates to Your Workspace');
-  const [template, setTemplate] = useState('Monthly Product Update');
+  const [usersData, setUsersData] = useState([]);
+  const [templates, setTemplates] = useState([]);
+  const [selectedUsers, setSelectedUsers] = useState([]);
+  const [subject, setSubject] = useState(defaultSubject);
+  const [template, setTemplate] = useState('');
+  const [body, setBody] = useState(defaultBody);
+  const [searchQuery, setSearchQuery] = useState('');
   const [attachments, setAttachments] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [sending, setSending] = useState(false);
+  const [error, setError] = useState('');
   const fileInputRef = useRef(null);
+
+  useEffect(() => {
+    let mounted = true;
+
+    const loadInitialData = async () => {
+      setLoading(true);
+      setError('');
+
+      try {
+        const [recipients, templateList] = await Promise.all([
+          adminBulkEmailApi.listRecipients({ limit: 1000 }),
+          adminBulkEmailApi.listTemplates(),
+        ]);
+
+        if (!mounted) return;
+
+        setUsersData(recipients || []);
+        setSelectedUsers([]);
+        setTemplates(templateList || []);
+
+        const firstTemplate = templateList?.[0];
+        if (firstTemplate) {
+          setTemplate(firstTemplate.id);
+          setSubject(firstTemplate.subject || defaultSubject);
+          setBody(firstTemplate.body || defaultBody);
+        }
+      } catch (loadError) {
+        if (!mounted) return;
+        setError(getApiErrorMessage(loadError));
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadInitialData();
+
+    return () => {
+      mounted = false;
+    };
+  }, []);
+
+  useEffect(() => {
+    let mounted = true;
+    const timeout = setTimeout(async () => {
+      try {
+        const recipients = await adminBulkEmailApi.listRecipients({
+          q: searchQuery || undefined,
+          limit: 1000,
+        });
+        if (!mounted) return;
+        setUsersData(recipients || []);
+        setError('');
+      } catch (searchError) {
+        if (!mounted) return;
+        setError(getApiErrorMessage(searchError));
+      }
+    }, 300);
+
+    return () => {
+      mounted = false;
+      clearTimeout(timeout);
+    };
+  }, [searchQuery]);
   
   const handleSelectUser = (user) => {
     if (selectedUsers.find(u => u.id === user.id)) {
@@ -29,9 +105,12 @@ const BulkEmail = () => {
 
   const handleSelectAll = (e) => {
     if (e.target.checked) {
-      setSelectedUsers(usersData);
+      const selectedById = new Map(selectedUsers.map((user) => [user.id, user]));
+      usersData.forEach((user) => selectedById.set(user.id, user));
+      setSelectedUsers(Array.from(selectedById.values()));
     } else {
-      setSelectedUsers([]);
+      const visibleIds = new Set(usersData.map((user) => user.id));
+      setSelectedUsers(selectedUsers.filter((user) => !visibleIds.has(user.id)));
     }
   };
 
@@ -64,8 +143,45 @@ const BulkEmail = () => {
     return parseFloat((bytes / Math.pow(k, i)).toFixed(1)) + ' ' + sizes[i];
   };
 
-  const isAllSelected = selectedUsers.length === usersData.length && usersData.length > 0;
-  const isSomeSelected = selectedUsers.length > 0 && selectedUsers.length < usersData.length;
+  const handleTemplateChange = (event) => {
+    const templateId = event.target.value;
+    setTemplate(templateId);
+    const selectedTemplate = templates.find((item) => item.id === templateId);
+    if (selectedTemplate) {
+      setSubject(selectedTemplate.subject || '');
+      setBody(selectedTemplate.body || '');
+    }
+  };
+
+  const handleSendEmail = async () => {
+    setSending(true);
+    setError('');
+
+    try {
+      const payload = new FormData();
+      payload.append('subject', subject);
+      payload.append('body', body);
+      payload.append('templateId', template);
+      payload.append('templateName', templates.find((item) => item.id === template)?.name || template);
+      payload.append('recipientIds', JSON.stringify(selectedUsers.map((user) => user.id)));
+      attachments.forEach((file) => payload.append('attachments', file));
+
+      const campaign = await adminBulkEmailApi.createCampaign(payload);
+      const sentCampaign = await adminBulkEmailApi.sendCampaign(campaign.id);
+      message.success(`Email sent to ${sentCampaign?.data?.sentCount || selectedUsers.length} recipient(s).`);
+    } catch (sendError) {
+      const messageText = getApiErrorMessage(sendError);
+      setError(messageText);
+      message.error(messageText);
+    } finally {
+      setSending(false);
+    }
+  };
+
+  const visibleSelectedCount = usersData.filter((user) => selectedUsers.some((selected) => selected.id === user.id)).length;
+  const isAllSelected = visibleSelectedCount === usersData.length && usersData.length > 0;
+  const isSomeSelected = visibleSelectedCount > 0 && visibleSelectedCount < usersData.length;
+  const canSend = selectedUsers.length > 0 && subject.trim() && body.trim();
 
   return (
     <div className="p-8 bg-[#fdfdfd] min-h-screen font-sans mt-16">
@@ -80,10 +196,16 @@ const BulkEmail = () => {
             <FiSearch className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
             <input 
               type="text" 
-              placeholder="Search users by name or email"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Search users or admins by name or email"
               className="w-full bg-[#f8fafc] border border-gray-200 rounded-lg py-2.5 pl-10 pr-4 text-[13px] text-gray-700 outline-none focus:border-[#002B49] transition-colors"
             />
           </div>
+
+          {error && (
+            <Alert className="mb-4" message={error} showIcon type="error" />
+          )}
 
           <div className="flex-1 overflow-x-auto">
             <table className="w-full text-left border-collapse">
@@ -102,11 +224,24 @@ const BulkEmail = () => {
                   </th>
                   <th className="py-3 px-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Name</th>
                   <th className="py-3 px-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Email</th>
+                  <th className="py-3 px-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider">Role</th>
                   <th className="py-3 px-2 text-[11px] font-bold text-gray-400 uppercase tracking-wider text-right">Status</th>
                 </tr>
               </thead>
               <tbody>
-                {usersData.map(user => {
+                {loading ? (
+                  <tr>
+                    <td colSpan="5" className="py-10 text-center text-[13px] text-gray-400 font-semibold">
+                      Loading recipients...
+                    </td>
+                  </tr>
+                ) : usersData.length === 0 ? (
+                  <tr>
+                    <td colSpan="5" className="py-10 text-center text-[13px] text-gray-400 font-semibold">
+                      No recipients found
+                    </td>
+                  </tr>
+                ) : usersData.map(user => {
                   const isSelected = !!selectedUsers.find(u => u.id === user.id);
                   return (
                     <tr 
@@ -127,6 +262,11 @@ const BulkEmail = () => {
                       </td>
                       <td className="py-4 px-2">
                         <div className="text-[13px] text-gray-500 break-all">{user.email}</div>
+                      </td>
+                      <td className="py-4 px-2">
+                        <span className="inline-flex items-center rounded bg-slate-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider text-slate-600">
+                          {user.role || 'User'}
+                        </span>
                       </td>
                       <td className="py-4 px-2 text-right">
                         <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-bold uppercase tracking-wider ${
@@ -152,8 +292,13 @@ const BulkEmail = () => {
               <h2 className="text-[20px] font-bold text-[#001f3f]">Compose</h2>
               <h2 className="text-[20px] font-bold text-[#001f3f]">Campaign</h2>
             </div>
-            <button className="bg-[#002B49] text-white px-6 py-2.5 rounded-lg flex items-center gap-2 hover:bg-[#002B49]/90 text-[14px] font-bold transition-colors shadow-sm">
-              <FiSend size={16} /> Send Email
+            <button
+              type="button"
+              onClick={handleSendEmail}
+              disabled={sending || !canSend}
+              className="bg-[#002B49] text-white px-6 py-2.5 rounded-lg flex items-center gap-2 hover:bg-[#002B49]/90 text-[14px] font-bold transition-colors shadow-sm disabled:opacity-70"
+            >
+              <FiSend size={16} /> {sending ? 'Sending...' : 'Send Email'}
             </button>
           </div>
 
@@ -165,6 +310,7 @@ const BulkEmail = () => {
                 {selectedUsers.map(user => (
                   <div key={user.id} className="bg-white border border-gray-200 rounded-md px-3 py-1 flex items-center gap-2 shadow-sm">
                     <span className="text-[13px] font-medium text-gray-700">{user.name}</span>
+                    <span className="text-[11px] font-semibold text-gray-400">{user.role || 'User'}</span>
                     <button 
                       onClick={() => removeUser(user.id)}
                       className="text-gray-400 hover:text-gray-600 focus:outline-none"
@@ -181,12 +327,12 @@ const BulkEmail = () => {
               <label className="block text-[13px] text-gray-600 font-medium mb-2">Select Template</label>
               <select 
                 value={template}
-                onChange={(e) => setTemplate(e.target.value)}
+                onChange={handleTemplateChange}
                 className="w-full bg-[#f8fafc] border border-gray-200 rounded-lg px-4 py-2.5 text-[14px] text-gray-800 outline-none focus:border-[#002B49] transition-colors appearance-none"
               >
-                <option value="Monthly Product Update">Monthly Product Update</option>
-                <option value="Welcome Email">Welcome Email</option>
-                <option value="Promotion">Promotion</option>
+                {templates.map((item) => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
               </select>
             </div>
 
@@ -204,35 +350,12 @@ const BulkEmail = () => {
             {/* Email Body Editor */}
             <div>
               <label className="block text-[13px] text-gray-600 font-medium mb-2">Email Body</label>
-              <div className="w-full border border-gray-200 rounded-lg overflow-hidden flex flex-col">
-                {/* Toolbar */}
-                <div className="bg-[#f8fafc] border-b border-gray-200 p-2 flex items-center gap-1 flex-wrap">
-                  <button className="p-1.5 text-gray-600 hover:bg-gray-200 rounded transition-colors"><FiBold size={18} /></button>
-                  <button className="p-1.5 text-gray-600 hover:bg-gray-200 rounded transition-colors"><FiItalic size={18} /></button>
-                  <button className="p-1.5 text-gray-600 hover:bg-gray-200 rounded transition-colors"><FiUnderline size={18} /></button>
-                  <div className="w-px h-5 bg-gray-300 mx-1"></div>
-                  <button className="p-1.5 text-gray-600 hover:bg-gray-200 rounded transition-colors"><FiAlignLeft size={18} /></button>
-                  <button className="p-1.5 text-gray-600 hover:bg-gray-200 rounded transition-colors"><FiAlignCenter size={18} /></button>
-                  <button className="p-1.5 text-gray-600 hover:bg-gray-200 rounded transition-colors"><FiAlignRight size={18} /></button>
-                  <div className="w-px h-5 bg-gray-300 mx-1"></div>
-                  <button className="p-1.5 text-gray-600 hover:bg-gray-200 rounded transition-colors"><FiLink size={18} /></button>
-                  <button className="p-1.5 text-gray-600 hover:bg-gray-200 rounded transition-colors"><FiImage size={18} /></button>
-                  <div className="flex-1"></div>
-                  <button className="p-1.5 text-gray-600 hover:bg-gray-200 rounded transition-colors"><FiCode size={18} /></button>
-                </div>
-                {/* Editor Content Area */}
-                <div className="p-5 min-h-[250px] outline-none text-[14px] text-gray-700 font-sans leading-relaxed" contentEditable suppressContentEditableWarning>
-                  <p className="font-bold text-[16px] text-[#001f3f] mb-4">Hi there,</p>
-                  <p className="mb-4">We've been working hard to bring you a better experience. In our latest update, we've introduced several key features designed to streamline your administrative workflow:</p>
-                  <ul className="mb-4 list-disc pl-5">
-                    <li className="mb-2"><strong className="text-[#001f3f]">Automated Reporting:</strong> Get insights delivered straight to your inbox every Monday.</li>
-                    <li className="mb-2"><strong className="text-[#001f3f]">Smart Filters:</strong> Drill down into your user base with surgical precision.</li>
-                    <li className="mb-2"><strong className="text-[#001f3f]">Performance Boost:</strong> The dashboard now loads 40% faster.</li>
-                  </ul>
-                  <p className="mb-6">Check out the new features today and let us know what you think!</p>
-                  <p>Best regards,<br/>The Modevin Team</p>
-                </div>
-              </div>
+              <RichHtmlEditor
+                value={body}
+                onChange={setBody}
+                minHeight={300}
+                placeholder="Compose the email body..."
+              />
             </div>
 
             {/* Attachments */}

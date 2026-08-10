@@ -1,5 +1,6 @@
-import React, { useState, useMemo } from "react";
-import { mockCollectors } from "../../Components/Users/mockCollectorsData";
+import React, { useEffect, useState } from "react";
+import { getApiErrorMessage } from "../../lib/api";
+import { adminUsersApi } from "../../services/adminUsersApi";
 import UserDetailDrawer from "../../Components/Users/UserDetailDrawer";
 import UserFilters from "../../Components/Users/UserFilters";
 import UserTable from "../../Components/Users/UserTable";
@@ -11,50 +12,63 @@ export default function Users() {
   const [selectedTier, setSelectedTier] = useState("All Tiers");
   const [currentPage, setCurrentPage] = useState(1);
   const [sortBy, setSortBy] = useState({ field: "name", direction: "asc" });
+  const [collectors, setCollectors] = useState([]);
+  const [pagination, setPagination] = useState({
+    total: 0,
+    totalPages: 1,
+  });
+  const [summary, setSummary] = useState({
+    totalActive: 0,
+  });
+  const [loading, setLoading] = useState(true);
+  const [actionLoading, setActionLoading] = useState(false);
+  const [error, setError] = useState("");
   const itemsPerPage = 10; // Number of items per page
 
+  useEffect(() => {
+    let isMounted = true;
 
-  // Filter collectors dynamically based on search query and tier dropdown selection
-  const filteredCollectors = useMemo(() => {
-    return mockCollectors.filter((c) => {
-      const matchesSearch =
-        c.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        c.email.toLowerCase().includes(searchQuery.toLowerCase());
+    const loadUsers = async () => {
+      setLoading(true);
+      setError("");
 
-      const matchesTier =
-        selectedTier === "All Tiers" ||
-        c.plan.toLowerCase() === selectedTier.toLowerCase();
+      try {
+        const result = await adminUsersApi.listUsers({
+          page: currentPage,
+          limit: itemsPerPage,
+          q: searchQuery || undefined,
+          tier: selectedTier,
+          sortBy: sortBy.field,
+          sortDirection: sortBy.direction,
+        });
 
-      return matchesSearch && matchesTier;
-    });
-  }, [searchQuery, selectedTier]);
+        if (!isMounted) return;
 
-  // Sort collectors dynamically
-  const sortedCollectors = useMemo(() => {
-    const sorted = [...filteredCollectors];
-    const { field, direction } = sortBy;
-    sorted.sort((a, b) => {
-      let valA = a[field].toLowerCase();
-      let valB = b[field].toLowerCase();
-      if (valA < valB) return direction === "asc" ? -1 : 1;
-      if (valA > valB) return direction === "asc" ? 1 : -1;
-      return 0;
-    });
-    return sorted;
-  }, [filteredCollectors, sortBy]);
+        setCollectors(result?.users || []);
+        setPagination(result?.pagination || { total: 0, totalPages: 1 });
+        setSummary(result?.summary || { totalActive: 0 });
+      } catch (err) {
+        if (!isMounted) return;
+        setError(getApiErrorMessage(err));
+        setCollectors([]);
+        setPagination({ total: 0, totalPages: 1 });
+      } finally {
+        if (isMounted) {
+          setLoading(false);
+        }
+      }
+    };
 
-  // Paginated slice
-  const paginatedCollectors = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return sortedCollectors.slice(startIndex, startIndex + itemsPerPage);
-  }, [sortedCollectors, currentPage]);
+    loadUsers();
 
-  // Total active count (Always shows 1,284 for visual alignment, or dynamically calculate as needed)
-  const totalActiveCount = "1,284";
-  const fakeTotalCount = 1284;
-  
-  // Total pages
-  const totalPages = Math.ceil(fakeTotalCount / itemsPerPage) || 1;
+    return () => {
+      isMounted = false;
+    };
+  }, [currentPage, searchQuery, selectedTier, sortBy]);
+
+  const totalActiveCount = Number(summary.totalActive || 0).toLocaleString();
+  const totalCount = pagination.total || 0;
+  const totalPages = pagination.totalPages || 1;
 
   const handleSort = (field) => {
     setSortBy((prev) => ({
@@ -62,6 +76,60 @@ export default function Users() {
       direction: prev.field === field && prev.direction === "asc" ? "desc" : "asc",
     }));
     setCurrentPage(1);
+  };
+
+  const handleSelectUser = async (user) => {
+    setSelectedUser(user);
+
+    try {
+      const details = await adminUsersApi.getUser(user.id);
+      setSelectedUser(details || user);
+    } catch {
+      setSelectedUser(user);
+    }
+  };
+
+  const handleSearchChange = (value) => {
+    setSearchQuery(value);
+    setCurrentPage(1);
+  };
+
+  const handleTierChange = (value) => {
+    setSelectedTier(value);
+    setCurrentPage(1);
+  };
+
+  const refreshCurrentPage = async () => {
+    const result = await adminUsersApi.listUsers({
+      page: currentPage,
+      limit: itemsPerPage,
+      q: searchQuery || undefined,
+      tier: selectedTier,
+      sortBy: sortBy.field,
+      sortDirection: sortBy.direction,
+    });
+    setCollectors(result?.users || []);
+    setPagination(result?.pagination || { total: 0, totalPages: 1 });
+    setSummary(result?.summary || { totalActive: 0 });
+  };
+
+  const handleToggleAccess = async (user) => {
+    setActionLoading(true);
+    setError("");
+
+    try {
+      const updatedUser =
+        user.status === "Suspended"
+          ? await adminUsersApi.unsuspendUser(user.id)
+          : await adminUsersApi.suspendUser(user.id);
+
+      setSelectedUser(updatedUser);
+      await refreshCurrentPage();
+    } catch (err) {
+      setError(getApiErrorMessage(err));
+    } finally {
+      setActionLoading(false);
+    }
   };
 
   return (
@@ -95,22 +163,33 @@ export default function Users() {
         {/* Upper Controls Row */}
         <UserFilters
           searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
+          onSearchChange={handleSearchChange}
           selectedTier={selectedTier}
-          onTierChange={setSelectedTier}
+          onTierChange={handleTierChange}
         />
+
+        {error && (
+          <div className="mx-6 mt-5 rounded-xl border border-rose-200 bg-rose-50 px-4 py-3 text-xs font-bold text-rose-600">
+            {error}
+          </div>
+        )}
+
+        {loading && (
+          <div className="px-6 py-5 text-xs font-bold text-gray-400">
+            Loading users...
+          </div>
+        )}
 
         {/* Table Container */}
         <UserTable
-          collectors={paginatedCollectors}
-          sortBy={sortBy}
+          collectors={collectors}
           onSort={handleSort}
-          onSelectUser={setSelectedUser}
+          onSelectUser={handleSelectUser}
         />
 
         {/* Footer Pagination Controls Row */}
         <UserPagination
-          totalCount={fakeTotalCount}
+          totalCount={totalCount}
           currentPage={currentPage}
           totalPages={totalPages}
           itemsPerPage={itemsPerPage}
@@ -122,6 +201,8 @@ export default function Users() {
       <UserDetailDrawer
         selectedUser={selectedUser}
         onClose={() => setSelectedUser(null)}
+        onToggleAccess={handleToggleAccess}
+        actionLoading={actionLoading}
       />
     </div>
   );

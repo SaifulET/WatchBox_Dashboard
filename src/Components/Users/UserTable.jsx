@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function UserTable({ collectors, sortBy, onSort, onSelectUser }) {
+export default function UserTable({ collectors, onSort, onSelectUser }) {
 
   const getPlanBadgeClass = (plan) => {
     switch (plan) {

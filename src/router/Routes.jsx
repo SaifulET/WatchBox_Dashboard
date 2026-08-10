@@ -32,6 +32,7 @@ import ForgotPassword from "../Pages/Settings/ForgotPassword";
 import VerifyOtp from "../Pages/Settings/VerifyOtp";
 import PrivacyPolicy from "../Pages/Settings/PrivacyPolicy";
 import TermsConditions from "../Pages/Settings/TermsConditions";
+import AboutUs from "../Pages/Settings/AboutUs";
 
 export const router = createBrowserRouter([
   {
@@ -74,6 +75,7 @@ export const router = createBrowserRouter([
           { path: "/settings/verify-otp", element: <VerifyOtp/> },
           { path: "/settings/privacy-policy", element: <PrivacyPolicy/> },
           { path: "/settings/terms-conditions", element: <TermsConditions/> },
+          { path: "/settings/about-us", element: <AboutUs/> },
           { path: "/notifications", element: <Notifications /> },
           { path: "/users", element: <Users /> },
           { path: "/earning", element: <Earning /> },

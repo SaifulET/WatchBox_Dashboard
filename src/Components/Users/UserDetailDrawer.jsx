@@ -1,7 +1,9 @@
 import React from "react";
 
-export default function UserDetailDrawer({ selectedUser, onClose }) {
+export default function UserDetailDrawer({ selectedUser, onClose, onToggleAccess, actionLoading = false }) {
   if (!selectedUser) return null;
+
+  const isSuspended = selectedUser.status === "Suspended";
 
   return (
     <div className="fixed inset-0 z-50 overflow-hidden font-sans select-none animate-fade-in">
@@ -134,16 +136,28 @@ export default function UserDetailDrawer({ selectedUser, onClose }) {
           <div className="w-full mt-8">
             <button
               type="button"
-              onClick={() => {
-                alert(`Access suspended for ${selectedUser.name}`);
-                onClose();
-              }}
-              className="w-full bg-white hover:bg-rose-50 text-rose-500 border border-rose-200 py-3 rounded-xl text-xs font-extrabold tracking-wide transition-colors flex items-center justify-center gap-2 focus:outline-none shadow-sm cursor-pointer"
+              onClick={() => onToggleAccess?.(selectedUser)}
+              disabled={actionLoading}
+              className={`w-full bg-white py-3 rounded-xl text-xs font-extrabold tracking-wide transition-colors flex items-center justify-center gap-2 focus:outline-none shadow-sm ${
+                isSuspended
+                  ? "hover:bg-emerald-50 text-emerald-600 border border-emerald-200"
+                  : "hover:bg-rose-50 text-rose-500 border border-rose-200"
+              } ${actionLoading ? "opacity-70 cursor-not-allowed" : "cursor-pointer"}`}
             >
-              <svg className="w-3.5 h-3.5 text-rose-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
-              </svg>
-              Suspend Account Access
+              {isSuspended ? (
+                <svg className="w-3.5 h-3.5 text-emerald-600" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              ) : (
+                <svg className="w-3.5 h-3.5 text-rose-500" fill="none" stroke="currentColor" strokeWidth="2.5" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M18.364 18.364A9 9 0 005.636 5.636m12.728 12.728A9 9 0 015.636 5.636m12.728 12.728L5.636 5.636" />
+                </svg>
+              )}
+              {actionLoading
+                ? "Updating Access..."
+                : isSuspended
+                  ? "Restore Account Access"
+                  : "Suspend Account Access"}
             </button>
           </div>
 
