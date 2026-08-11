@@ -8,7 +8,8 @@ export default function EarningFilters({
   setSubscriptionFilter,
   setCurrentPage,
   showFilterDropdown,
-  setShowFilterDropdown
+  setShowFilterDropdown,
+  onExport
 }) {
   return (
     <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4 mb-6 select-none relative z-10">
@@ -101,7 +102,7 @@ export default function EarningFilters({
         {/* Export Outlined Button */}
         <button
           type="button"
-          onClick={() => alert("Current transactions list exported successfully as CSV.")}
+          onClick={onExport}
           className="bg-white border border-gray-200 hover:bg-slate-50 text-slate-700 text-xs font-bold px-4 py-2.5 rounded-xl transition-all focus:outline-none flex items-center gap-2 shadow-xs cursor-pointer"
         >
           <Download className="w-4 h-4 text-gray-400" />

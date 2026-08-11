@@ -1,13 +1,14 @@
-import React, { useState, useMemo } from "react";
+import React, { useEffect, useMemo, useState } from "react";
+import { Alert, message } from "antd";
 import { jsPDF } from "jspdf";
 
-// Import modular Earning sub-components
-import { mockTransactions } from "../../Components/Earning/mockTransactionsData";
 import EarningStats from "../../Components/Earning/EarningStats";
 import EarningFilters from "../../Components/Earning/EarningFilters";
 import EarningTable from "../../Components/Earning/EarningTable";
 import EarningPagination from "../../Components/Earning/EarningPagination";
 import TransactionDetailsModal from "../../Components/Earning/TransactionDetailsModal";
+import { getApiErrorMessage } from "../../lib/api";
+import { adminEarningsApi } from "../../services/adminEarningsApi";
 
 export default function Earning() {
   const [activeTab, setActiveTab] = useState("All Users");
@@ -15,26 +16,88 @@ export default function Earning() {
   const [selectedTrx, setSelectedTrx] = useState(null); // Eye click details modal state
   const [showFilterDropdown, setShowFilterDropdown] = useState(false);
   const [subscriptionFilter, setSubscriptionFilter] = useState("All Subscriptions");
+  const [summary, setSummary] = useState(null);
+  const [transactions, setTransactions] = useState([]);
+  const [pagination, setPagination] = useState({ total: 0, totalPages: 1 });
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
   const itemsPerPage = 4; // Styled to match 4 items in the screenshot view
 
-  // Filter transactions dynamically based on active tab and subscription filter dropdown
-  const filteredTransactions = useMemo(() => {
-    return mockTransactions.filter((t) => {
-      const matchesTab = t.type === activeTab;
-      const matchesSub = 
-        subscriptionFilter === "All Subscriptions" || 
-        t.subscription === subscriptionFilter;
-      return matchesTab && matchesSub;
-    });
-  }, [activeTab, subscriptionFilter]);
+  const queryParams = useMemo(
+    () => ({
+      page: currentPage,
+      limit: itemsPerPage,
+      type: activeTab,
+      subscription: subscriptionFilter,
+    }),
+    [activeTab, currentPage, subscriptionFilter]
+  );
 
-  // Paginated slice
-  const paginatedTransactions = useMemo(() => {
-    const startIndex = (currentPage - 1) * itemsPerPage;
-    return filteredTransactions.slice(startIndex, startIndex + itemsPerPage);
-  }, [filteredTransactions, currentPage]);
+  useEffect(() => {
+    let mounted = true;
 
-  const totalPages = Math.ceil(filteredTransactions.length / itemsPerPage) || 1;
+    const loadEarnings = async () => {
+      setLoading(true);
+      setError("");
+
+      try {
+        const [summaryResult, transactionResult] = await Promise.all([
+          adminEarningsApi.summary(),
+          adminEarningsApi.transactions(queryParams),
+        ]);
+        if (!mounted) return;
+        setSummary(summaryResult);
+        setTransactions(transactionResult?.transactions || []);
+        setPagination(transactionResult?.pagination || { total: 0, totalPages: 1 });
+      } catch (loadError) {
+        if (!mounted) return;
+        setError(getApiErrorMessage(loadError));
+        setTransactions([]);
+        setPagination({ total: 0, totalPages: 1 });
+      } finally {
+        if (mounted) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadEarnings();
+
+    return () => {
+      mounted = false;
+    };
+  }, [queryParams]);
+
+  const totalPages = pagination.totalPages || 1;
+
+  const viewTransaction = async (trx) => {
+    try {
+      const detail = await adminEarningsApi.transaction(trx.id);
+      setSelectedTrx(detail || trx);
+    } catch {
+      setSelectedTrx(trx);
+    }
+  };
+
+  const exportTransactions = async () => {
+    try {
+      const response = await adminEarningsApi.exportTransactions({
+        type: activeTab,
+        subscription: subscriptionFilter,
+      });
+      const url = window.URL.createObjectURL(response.data);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "earnings-transactions.csv";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.URL.revokeObjectURL(url);
+      message.success("Current transactions list exported successfully as CSV.");
+    } catch (exportError) {
+      message.error(getApiErrorMessage(exportError));
+    }
+  };
 
   // Generates and downloads a high-fidelity client-side PDF using jsPDF
   const downloadInvoicePDF = (trx) => {
@@ -148,7 +211,7 @@ export default function Earning() {
     <div className="min-h-screen p-6 bg-gray-50/50 font-sans mt-16 text-slate-800 relative">
       
       {/* 1. Top KPI Summary Cards Row */}
-      <EarningStats />
+      <EarningStats summary={summary} />
 
       {/* 2. Earnings Header & Toolbar Controls Row */}
       <EarningFilters 
@@ -159,21 +222,31 @@ export default function Earning() {
         setCurrentPage={setCurrentPage}
         showFilterDropdown={showFilterDropdown}
         setShowFilterDropdown={setShowFilterDropdown}
+        onExport={exportTransactions}
       />
+
+      {error && (
+        <Alert className="mb-4" message={error} showIcon type="error" />
+      )}
 
       {/* 3. Main Transaction Table Card Panel */}
       <div className="bg-white border border-gray-100/80 rounded-3xl shadow-[0_2px_12px_rgba(0,0,0,0.015)] overflow-hidden relative z-0">
+        {loading && (
+          <div className="px-6 py-4 text-xs font-bold text-gray-400 border-b border-gray-100">
+            Loading earnings...
+          </div>
+        )}
         
         {/* Table View */}
         <EarningTable 
-          paginatedTransactions={paginatedTransactions}
+          paginatedTransactions={transactions}
           downloadInvoicePDF={downloadInvoicePDF}
-          setSelectedTrx={setSelectedTrx}
+          viewTransaction={viewTransaction}
         />
 
         {/* 4. Footer statistics range & Pagination Chevrons */}
         <EarningPagination 
-          filteredTransactions={filteredTransactions}
+          totalItems={pagination.total || 0}
           currentPage={currentPage}
           setCurrentPage={setCurrentPage}
           itemsPerPage={itemsPerPage}

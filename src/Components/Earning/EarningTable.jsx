@@ -4,7 +4,7 @@ import { Eye, FileDown, Inbox } from "lucide-react";
 export default function EarningTable({
   paginatedTransactions,
   downloadInvoicePDF,
-  setSelectedTrx
+  viewTransaction
 }) {
   const getSubBadgeClass = (sub) => {
     switch (sub) {
@@ -123,7 +123,7 @@ export default function EarningTable({
                       {/* View eye outline button */}
                       <button 
                         type="button" 
-                        onClick={() => setSelectedTrx(trx)}
+                        onClick={() => viewTransaction(trx)}
                         className="flex items-center justify-center w-8 h-8 rounded-lg text-[#002B49] hover:bg-slate-100 transition-colors focus:outline-none cursor-pointer"
                         title="View Details"
                       >

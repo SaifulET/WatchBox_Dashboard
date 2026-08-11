@@ -1,9 +1,87 @@
 import React, { useState } from 'react';
-import { Modal, Input, Switch } from 'antd';
+import { Modal, Input, Switch, message } from 'antd';
 import { FiX, FiSearch, FiCamera, FiBarChart2, FiSettings, FiPlus } from 'react-icons/fi';
 
-const PlanModal = ({ isPlanModalOpen, setIsPlanModalOpen }) => {
+const featureOptions = [
+  {
+    key: 'unlimitedSearches',
+    text: 'Unlimited Searches',
+    description: 'Allow users to search the database without caps.',
+    icon: FiSearch,
+    defaultActive: true,
+  },
+  {
+    key: 'aiVisualSearch',
+    text: 'AI Visual Search',
+    description: 'Enable timepiece identification via image uploads.',
+    icon: FiCamera,
+    defaultActive: true,
+  },
+  {
+    key: 'marketAnalytics',
+    text: 'Market Analytics',
+    description: 'Real-time price trends and investment tracking.',
+    icon: FiBarChart2,
+    defaultActive: false,
+  },
+  {
+    key: 'apiAccess',
+    text: 'API Access',
+    description: 'Developer tokens for automated data retrieval.',
+    icon: FiSettings,
+    defaultActive: false,
+  },
+];
+
+const PlanModal = ({ isPlanModalOpen, setIsPlanModalOpen, onCreatePlan }) => {
   const [selectedBadge, setSelectedBadge] = useState("Gold");
+  const [name, setName] = useState("");
+  const [monthlyPrice, setMonthlyPrice] = useState("49");
+  const [annualPrice, setAnnualPrice] = useState("499");
+  const [features, setFeatures] = useState(() =>
+    featureOptions.reduce((values, feature) => ({
+      ...values,
+      [feature.key]: feature.defaultActive,
+    }), {})
+  );
+
+  const toggleFeature = (key, active) => {
+    setFeatures((current) => ({
+      ...current,
+      [key]: active,
+    }));
+  };
+
+  const handleCreate = async () => {
+    if (!name.trim()) {
+      message.error('Plan name is required.');
+      return;
+    }
+
+    try {
+      await onCreatePlan({
+        name: name.trim(),
+        price: monthlyPrice,
+        annualPrice,
+        badge: selectedBadge,
+        isPopular: selectedBadge === 'Gold',
+        features: featureOptions.map((feature) => ({
+          text: feature.text,
+          active: Boolean(features[feature.key]),
+        })),
+      });
+      setName("");
+      setMonthlyPrice("49");
+      setAnnualPrice("499");
+      setSelectedBadge("Gold");
+      setFeatures(featureOptions.reduce((values, feature) => ({
+        ...values,
+        [feature.key]: feature.defaultActive,
+      }), {}));
+    } catch (error) {
+      message.error(error?.message || 'Unable to create plan.');
+    }
+  };
 
   return (
     <Modal
@@ -29,7 +107,12 @@ const PlanModal = ({ isPlanModalOpen, setIsPlanModalOpen }) => {
             {/* Plan Name */}
             <div>
               <label className="block text-[13px] font-semibold text-gray-700 mb-2">Plan Name</label>
-              <Input placeholder="e.g. Collector Pro" className="h-[42px] rounded-lg border-gray-300 px-3 text-gray-800" />
+              <Input
+                value={name}
+                onChange={(event) => setName(event.target.value)}
+                placeholder="e.g. Collector Pro"
+                className="h-[42px] rounded-lg border-gray-300 px-3 text-gray-800"
+              />
             </div>
             
             {/* Tier Badge */}
@@ -60,7 +143,12 @@ const PlanModal = ({ isPlanModalOpen, setIsPlanModalOpen }) => {
             {/* Monthly Price */}
             <div>
               <label className="block text-[13px] font-semibold text-gray-700 mb-2">Monthly Price (USD)</label>
-              <Input prefix={<span className="text-gray-400 mr-1">$</span>} defaultValue="49" className="h-[42px] rounded-lg border-gray-300 px-3 text-gray-800 font-medium" />
+              <Input
+                prefix={<span className="text-gray-400 mr-1">$</span>}
+                value={monthlyPrice}
+                onChange={(event) => setMonthlyPrice(event.target.value)}
+                className="h-[42px] rounded-lg border-gray-300 px-3 text-gray-800 font-medium"
+              />
             </div>
             
             {/* Annual Price */}
@@ -69,7 +157,12 @@ const PlanModal = ({ isPlanModalOpen, setIsPlanModalOpen }) => {
                 <label className="block text-[13px] font-semibold text-gray-700">Annual Price (USD)</label>
                 <span className="bg-green-100 text-green-700 text-[9px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wider">Save 15%</span>
               </div>
-              <Input prefix={<span className="text-gray-400 mr-1">$</span>} defaultValue="499" className="h-[42px] rounded-lg border-gray-300 px-3 text-gray-800 font-medium" />
+              <Input
+                prefix={<span className="text-gray-400 mr-1">$</span>}
+                value={annualPrice}
+                onChange={(event) => setAnnualPrice(event.target.value)}
+                className="h-[42px] rounded-lg border-gray-300 px-3 text-gray-800 font-medium"
+              />
             </div>
           </div>
         </div>
@@ -81,61 +174,29 @@ const PlanModal = ({ isPlanModalOpen, setIsPlanModalOpen }) => {
           <h4 className="text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-4">Platform Features</h4>
           
           <div className="space-y-3">
-            {/* Feature 1 */}
-            <div className="bg-[#f8f9fc] border border-gray-100 rounded-xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-white shadow-sm border border-gray-100 rounded-lg flex items-center justify-center text-[#0b3b7c] text-lg flex-shrink-0">
-                  <FiSearch />
+            {featureOptions.map((feature) => {
+              const Icon = feature.icon;
+              const active = Boolean(features[feature.key]);
+              return (
+                <div key={feature.key} className="bg-[#f8f9fc] border border-gray-100 rounded-xl p-4 flex items-center justify-between">
+                  <div className="flex items-center gap-4">
+                    <div className="w-10 h-10 bg-white shadow-sm border border-gray-100 rounded-lg flex items-center justify-center text-[#0b3b7c] text-lg flex-shrink-0">
+                      <Icon />
+                    </div>
+                    <div>
+                      <h4 className="text-sm font-semibold text-gray-800">{feature.text}</h4>
+                      <p className="text-[12px] text-gray-500 mt-0.5">{feature.description}</p>
+                    </div>
+                  </div>
+                  <Switch
+                    checked={active}
+                    onChange={(value) => toggleFeature(feature.key, value)}
+                    className="bg-gray-200"
+                    style={{ backgroundColor: active ? '#0b3b7c' : undefined }}
+                  />
                 </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-800">Unlimited Searches</h4>
-                  <p className="text-[12px] text-gray-500 mt-0.5">Allow users to search the database without caps.</p>
-                </div>
-              </div>
-              <Switch defaultChecked className="bg-gray-200" style={{ backgroundColor: '#0b3b7c' }} />
-            </div>
-
-            {/* Feature 2 */}
-            <div className="bg-[#f8f9fc] border border-gray-100 rounded-xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-white shadow-sm border border-gray-100 rounded-lg flex items-center justify-center text-[#0b3b7c] text-lg flex-shrink-0">
-                  <FiCamera />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-800">AI Visual Search</h4>
-                  <p className="text-[12px] text-gray-500 mt-0.5">Enable timepiece identification via image uploads.</p>
-                </div>
-              </div>
-              <Switch defaultChecked className="bg-gray-200" style={{ backgroundColor: '#0b3b7c' }} />
-            </div>
-
-            {/* Feature 3 */}
-            <div className="bg-[#f8f9fc] border border-gray-100 rounded-xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-white shadow-sm border border-gray-100 rounded-lg flex items-center justify-center text-[#0b3b7c] text-lg flex-shrink-0">
-                  <FiBarChart2 />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-800">Market Analytics</h4>
-                  <p className="text-[12px] text-gray-500 mt-0.5">Real-time price trends and investment tracking.</p>
-                </div>
-              </div>
-              <Switch className="bg-gray-200" />
-            </div>
-
-            {/* Feature 4 */}
-            <div className="bg-[#f8f9fc] border border-gray-100 rounded-xl p-4 flex items-center justify-between">
-              <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-white shadow-sm border border-gray-100 rounded-lg flex items-center justify-center text-[#0b3b7c] text-lg flex-shrink-0">
-                  <FiSettings />
-                </div>
-                <div>
-                  <h4 className="text-sm font-semibold text-gray-800">API Access</h4>
-                  <p className="text-[12px] text-gray-500 mt-0.5">Developer tokens for automated data retrieval.</p>
-                </div>
-              </div>
-              <Switch className="bg-gray-200" />
-            </div>
+              );
+            })}
           </div>
         </div>
       </div>
@@ -145,7 +206,10 @@ const PlanModal = ({ isPlanModalOpen, setIsPlanModalOpen }) => {
         <button onClick={() => setIsPlanModalOpen(false)} className="text-[#0b3b7c] font-bold text-[13px] hover:underline px-2 py-2">
           Cancel
         </button>
-        <button className="bg-[#0b3b7c] text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-[#0b3b7c]/90 text-sm font-medium transition-colors shadow-sm">
+        <button
+          onClick={handleCreate}
+          className="bg-[#0b3b7c] text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-[#0b3b7c]/90 text-sm font-medium transition-colors shadow-sm"
+        >
           <FiPlus className="text-[16px]" /> Create Plan
         </button>
       </div>

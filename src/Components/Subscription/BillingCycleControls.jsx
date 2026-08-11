@@ -1,24 +1,43 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import { Switch, Input, message } from 'antd';
 import { FiTrash2, FiPlus } from 'react-icons/fi';
 
-const initialCodes = [
-  { id: 1, code: 'SIHH2024', description: '25% Off / 6 Months' },
-  { id: 2, code: 'WATCHPRO10', description: '10% Off / Lifetime' }
-];
+const BillingCycleControls = ({
+  settings,
+  promotions = [],
+  onUpdateSettings,
+  onDeletePromotion,
+  setIsModalOpen
+}) => {
+  const [trialPeriod, setTrialPeriod] = useState(settings?.trialPeriodDays ?? 14);
+  const [autoRenewal, setAutoRenewal] = useState(settings?.autoRenewal ?? true);
 
-const BillingCycleControls = ({ setIsModalOpen }) => {
-  const [trialPeriod, setTrialPeriod] = useState(14);
-  const [discountCodes, setDiscountCodes] = useState(initialCodes);
-  const [autoRenewal, setAutoRenewal] = useState(true);
+  useEffect(() => {
+    setTrialPeriod(settings?.trialPeriodDays ?? 14);
+    setAutoRenewal(settings?.autoRenewal ?? true);
+  }, [settings]);
 
-  const handleUpdateGlobal = () => {
-    message.success(`Global trial period updated to ${trialPeriod} days.`);
+  const handleUpdateGlobal = async () => {
+    try {
+      await onUpdateSettings({
+        trialPeriodDays: Number(trialPeriod),
+        autoRenewal,
+      });
+    } catch (error) {
+      message.error(error?.message || 'Unable to update billing settings.');
+    }
   };
 
-  const handleRemoveCode = (id) => {
-    setDiscountCodes(discountCodes.filter(code => code.id !== id));
-    message.success("Discount code removed.");
+  const handleAutoRenewal = async (value) => {
+    setAutoRenewal(value);
+    try {
+      await onUpdateSettings({
+        trialPeriodDays: Number(trialPeriod),
+        autoRenewal: value,
+      });
+    } catch (error) {
+      message.error(error?.message || 'Unable to update auto-renewal.');
+    }
   };
 
   return (
@@ -53,13 +72,13 @@ const BillingCycleControls = ({ setIsModalOpen }) => {
         <div className="mb-8">
           <p className="text-[10px] font-bold text-gray-400 tracking-wider mb-3 uppercase">Active Discount Codes</p>
           <div className="bg-blue-50/40 rounded-lg p-2 space-y-1 mb-4 border border-blue-100/50">
-            {discountCodes.length > 0 ? (
-              discountCodes.map((item) => (
+            {promotions.length > 0 ? (
+              promotions.map((item) => (
                 <div key={item.id} className="flex items-center justify-between px-3 py-2 rounded-md hover:bg-blue-50/80 transition-colors">
                   <span className="text-sm font-bold text-[#0b3b7c]">{item.code}</span>
                   <span className="text-sm text-gray-500 font-medium">{item.description}</span>
                   <button 
-                    onClick={() => handleRemoveCode(item.id)}
+                    onClick={() => onDeletePromotion(item.id)}
                     className="text-red-400 hover:text-red-600 transition-colors"
                   >
                     <FiTrash2 size={15} />
@@ -86,7 +105,7 @@ const BillingCycleControls = ({ setIsModalOpen }) => {
         </div>
         <Switch 
           checked={autoRenewal}
-          onChange={setAutoRenewal}
+          onChange={handleAutoRenewal}
           className="bg-gray-200" 
           style={{ backgroundColor: autoRenewal ? '#0b3b7c' : undefined }} 
         />

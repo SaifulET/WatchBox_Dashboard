@@ -1,44 +1,8 @@
 import React, { useState } from 'react';
+import { message } from 'antd';
 import { IoCheckmarkCircleOutline } from "react-icons/io5";
 
-const initialPlans = [
-  {
-    id: 'free',
-    name: 'Free',
-    price: '0',
-    isPopular: false,
-    features: [
-      { text: '5 Active Watches', active: true },
-      { text: 'Standard Market Prices', active: true },
-      { text: 'AI Visual Search', active: false },
-    ]
-  },
-  {
-    id: 'premium',
-    name: 'Premium',
-    price: '49',
-    isPopular: true,
-    features: [
-      { text: 'Unlimited Searches', active: true },
-      { text: 'AI Visual Search', active: true },
-      { text: 'Market Analytics', active: true },
-    ]
-  },
-  {
-    id: 'enterprise',
-    name: 'Enterprise',
-    price: '299',
-    isPopular: false,
-    features: [
-      { text: 'All Premium Features', active: true },
-      { text: 'API Access (REST/Webhooks)', active: true },
-      { text: 'Dedicated Account Manager', active: true },
-    ]
-  }
-];
-
-const PricingCards = () => {
-  const [plans, setPlans] = useState(initialPlans);
+const PricingCards = ({ plans = [], onUpdatePlan }) => {
   const [editingId, setEditingId] = useState(null);
   const [editFormData, setEditFormData] = useState(null);
 
@@ -48,9 +12,14 @@ const PricingCards = () => {
     setEditFormData(JSON.parse(JSON.stringify(plan)));
   };
 
-  const handleSaveClick = () => {
-    setPlans(plans.map(p => p.id === editingId ? editFormData : p));
-    setEditingId(null);
+  const handleSaveClick = async () => {
+    try {
+      await onUpdatePlan(editingId, editFormData);
+      setEditingId(null);
+      setEditFormData(null);
+    } catch (error) {
+      message.error(error?.message || 'Unable to update plan.');
+    }
   };
 
   const handleCancelClick = () => {

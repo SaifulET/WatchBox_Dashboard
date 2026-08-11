@@ -2,7 +2,7 @@ import React from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 
 export default function EarningPagination({
-  filteredTransactions,
+  totalItems,
   currentPage,
   setCurrentPage,
   itemsPerPage,
@@ -13,7 +13,7 @@ export default function EarningPagination({
       {/* Slice statistical range text */}
       <div className="text-left">
         <span className="text-xs font-bold text-gray-400 font-semibold tracking-wide">
-          Showing {filteredTransactions.length > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, filteredTransactions.length)} of {filteredTransactions.length} users
+          Showing {totalItems > 0 ? (currentPage - 1) * itemsPerPage + 1 : 0} to {Math.min(currentPage * itemsPerPage, totalItems)} of {totalItems} users
         </span>
       </div>
 

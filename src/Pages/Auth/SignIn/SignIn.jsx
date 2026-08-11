@@ -65,7 +65,7 @@ const SignIn = () => {
 
           <Form
             name="login"
-            initialValues={{ remember: true }}
+            initialValues={{ email: "", password: "", remember: true }}
             onFinish={onFinish}
             layout="vertical"
             requiredMark={false}
@@ -94,6 +94,8 @@ const SignIn = () => {
               >
                 <input
                   className="w-full h-11 px-4 text-xs text-gray-800 placeholder-gray-300 bg-white border border-gray-200 rounded-lg hover:border-gray-300 focus:border-sky-500 focus:shadow-[0_0_0_2px_rgba(56,189,248,0.15)] transition-all outline-none"
+                  type="email"
+                  autoComplete="username"
                   placeholder="name@authority.com"
                 />
               </Form.Item>
@@ -120,6 +122,7 @@ const SignIn = () => {
                   <input
                     className="w-full h-11 pl-4 pr-11 text-xs text-gray-800 placeholder-gray-300 bg-white border border-gray-200 rounded-lg hover:border-gray-300 focus:border-sky-500 focus:shadow-[0_0_0_2px_rgba(56,189,248,0.15)] transition-all outline-none"
                     type={showPassword ? "text" : "password"}
+                    autoComplete="current-password"
                     placeholder="********"
                   />
                 </Form.Item>

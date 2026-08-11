@@ -1,18 +1,51 @@
 import React, { useState } from 'react';
-import { Modal, Input, Select, DatePicker } from 'antd';
+import { Modal, Input, Select, DatePicker, message } from 'antd';
 import { FiX, FiCheck } from 'react-icons/fi';
 import { BsStars } from "react-icons/bs";
 import watchBanner from "../../assets/image/luxury_watch_bg.png";
 import dayjs from 'dayjs';
 
-const PromotionModal = ({ isModalOpen, setIsModalOpen }) => {
-  const [selectedPlans, setSelectedPlans] = useState(["Premium"]);
+const PromotionModal = ({ isModalOpen, setIsModalOpen, plans = [], onCreatePromotion }) => {
+  const [selectedPlans, setSelectedPlans] = useState(["premium"]);
+  const [code, setCode] = useState("WATCHPRO2024");
+  const [discountType, setDiscountType] = useState("percentage");
+  const [discountValue, setDiscountValue] = useState("20");
+  const [duration, setDuration] = useState("Multi-month");
+  const [expiresAt, setExpiresAt] = useState(() => dayjs().add(30, 'day'));
 
   const togglePlan = (plan) => {
     if (selectedPlans.includes(plan)) {
       setSelectedPlans(selectedPlans.filter(p => p !== plan));
     } else {
       setSelectedPlans([...selectedPlans, plan]);
+    }
+  };
+
+  const handleCreate = async () => {
+    if (!selectedPlans.length) {
+      message.error('Select at least one target plan.');
+      return;
+    }
+    if (!code.trim()) {
+      message.error('Promo code is required.');
+      return;
+    }
+    if (!Number(discountValue) || Number(discountValue) <= 0) {
+      message.error('Discount value must be greater than zero.');
+      return;
+    }
+
+    try {
+      await onCreatePromotion({
+        code,
+        discountType,
+        discountValue: Number(discountValue),
+        duration,
+        planIds: selectedPlans,
+        expiresAt: expiresAt?.toISOString(),
+      });
+    } catch (error) {
+      message.error(error?.message || 'Unable to create promotion.');
     }
   };
 
@@ -47,26 +80,28 @@ const PromotionModal = ({ isModalOpen, setIsModalOpen }) => {
         <div className="grid grid-cols-2 gap-x-4 gap-y-5 mb-6">
           <div>
             <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Promo Code</label>
-            <Input defaultValue="WATCHPRO2024" className="h-[42px] rounded-lg border-gray-300 font-medium text-gray-800 px-3" />
+            <Input value={code} onChange={(event) => setCode(event.target.value)} className="h-[42px] rounded-lg border-gray-300 font-medium text-gray-800 px-3" />
           </div>
           <div>
             <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Discount Type</label>
             <Select 
-               defaultValue="percentage" 
+               value={discountType} 
+               onChange={setDiscountType}
                className="w-full h-[42px]" 
-               options={[{ value: 'percentage', label: 'Percentage (%)' }]}
+               options={[{ value: 'percentage', label: 'Percentage (%)' }, { value: 'fixed', label: 'Fixed Amount' }]}
             />
           </div>
           <div>
             <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Discount Value</label>
-            <Input defaultValue="20" suffix={<span className="text-gray-400 font-medium">%</span>} className="h-[42px] rounded-lg border-gray-300 font-medium text-gray-800 px-3" />
+            <Input value={discountValue} onChange={(event) => setDiscountValue(event.target.value)} suffix={<span className="text-gray-400 font-medium">{discountType === 'percentage' ? '%' : '$'}</span>} className="h-[42px] rounded-lg border-gray-300 font-medium text-gray-800 px-3" />
           </div>
           <div>
             <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Duration</label>
             <Select 
-               defaultValue="multi" 
+               value={duration} 
+               onChange={setDuration}
                className="w-full h-[42px]" 
-               options={[{ value: 'multi', label: 'Multi-month' }]}
+               options={[{ value: 'Multi-month', label: 'Multi-month' }, { value: 'Lifetime', label: 'Lifetime' }, { value: 'One-time', label: 'One-time' }]}
             />
           </div>
         </div>
@@ -75,18 +110,19 @@ const PromotionModal = ({ isModalOpen, setIsModalOpen }) => {
         <div className="bg-[#f8f9fc] border border-blue-50 rounded-xl p-5 mb-6">
           <label className="block text-[11px] font-bold text-[#0b3b7c] uppercase tracking-wider mb-4">Applicability (Select Target Plans)</label>
           <div className="flex gap-3">
-            {['Free', 'Premium', 'Enterprise'].map((plan) => {
-              const isSelected = selectedPlans.includes(plan);
+            {(plans.length ? plans : [{ id: 'free', name: 'Free' }, { id: 'premium', name: 'Premium' }, { id: 'enterprise', name: 'Enterprise' }]).map((plan) => {
+              const planId = plan.id || plan.name;
+              const isSelected = selectedPlans.includes(planId);
               return (
                 <div 
-                  key={plan}
-                  onClick={() => togglePlan(plan)}
+                  key={planId}
+                  onClick={() => togglePlan(planId)}
                   className={`flex-1 flex items-center justify-center gap-2 py-3 rounded-lg border cursor-pointer transition-all ${isSelected ? 'border-[#0b3b7c] border-[2px] bg-white shadow-sm' : 'border-gray-200 bg-white hover:border-gray-300'}`}
                 >
                   <div className={`w-4 h-4 rounded-[4px] flex items-center justify-center border transition-colors ${isSelected ? 'bg-[#0b3b7c] border-[#0b3b7c] text-white' : 'border-gray-300 bg-white'}`}>
                     {isSelected && <FiCheck size={12} strokeWidth={4} />}
                   </div>
-                  <span className={`text-sm font-medium ${isSelected ? 'text-gray-900' : 'text-gray-600'}`}>{plan}</span>
+                  <span className={`text-sm font-medium ${isSelected ? 'text-gray-900' : 'text-gray-600'}`}>{plan.name || planId}</span>
                 </div>
               );
             })}
@@ -97,7 +133,8 @@ const PromotionModal = ({ isModalOpen, setIsModalOpen }) => {
         <div className="mb-2">
           <label className="block text-[11px] font-bold text-gray-500 uppercase tracking-wider mb-2">Promotion Expiry Date</label>
           <DatePicker 
-             defaultValue={dayjs('12/31/2024', 'MM/DD/YYYY')}
+             value={expiresAt}
+             onChange={setExpiresAt}
              format="MM/DD/YYYY" 
              className="w-full h-[42px] rounded-lg border-gray-300 px-3 font-medium text-gray-800" 
           />
@@ -110,7 +147,7 @@ const PromotionModal = ({ isModalOpen, setIsModalOpen }) => {
         <button onClick={() => setIsModalOpen(false)} className="text-[#0b3b7c] font-bold text-[13px] hover:underline px-2 py-2">
           Cancel
         </button>
-        <button className="bg-[#0b3b7c] text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-[#0b3b7c]/90 text-sm font-medium transition-colors shadow-sm">
+        <button onClick={handleCreate} className="bg-[#0b3b7c] text-white px-5 py-2.5 rounded-lg flex items-center gap-2 hover:bg-[#0b3b7c]/90 text-sm font-medium transition-colors shadow-sm">
           <BsStars className="text-[16px]" /> Generate Promotion
         </button>
       </div>

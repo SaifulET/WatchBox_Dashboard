@@ -167,8 +167,8 @@ const BulkEmail = () => {
       attachments.forEach((file) => payload.append('attachments', file));
 
       const campaign = await adminBulkEmailApi.createCampaign(payload);
-      const sentCampaign = await adminBulkEmailApi.sendCampaign(campaign.id);
-      message.success(`Email sent to ${sentCampaign?.data?.sentCount || selectedUsers.length} recipient(s).`);
+      await adminBulkEmailApi.sendCampaign(campaign.id);
+      message.success(`Email campaign queued for ${selectedUsers.length} recipient(s).`);
     } catch (sendError) {
       const messageText = getApiErrorMessage(sendError);
       setError(messageText);
@@ -298,7 +298,7 @@ const BulkEmail = () => {
               disabled={sending || !canSend}
               className="bg-[#002B49] text-white px-6 py-2.5 rounded-lg flex items-center gap-2 hover:bg-[#002B49]/90 text-[14px] font-bold transition-colors shadow-sm disabled:opacity-70"
             >
-              <FiSend size={16} /> {sending ? 'Sending...' : 'Send Email'}
+              <FiSend size={16} /> {sending ? 'Queueing...' : 'Send Email'}
             </button>
           </div>
 
