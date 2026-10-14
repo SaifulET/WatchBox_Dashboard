@@ -1,3 +1,4 @@
+import { useEffect } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import mainLogo from "../../assets/image/mainlogo.png";
 import {
@@ -11,6 +12,7 @@ import {
   UserPlus,
   FileBarChart2,
   Mail,
+  MessageSquare,
   Settings,
   LogOut
 } from "lucide-react";
@@ -20,6 +22,20 @@ const Sidebar = ({ closeDrawer }) => {
   const location = useLocation();
   const navigate = useNavigate();
   const logout = useAuthStore((state) => state.logout);
+  const permissions = useAuthStore((state) => state.permissions);
+  const roles = useAuthStore((state) => state.roles);
+  const loadPermissions = useAuthStore((state) => state.loadPermissions);
+  const canReadSupport =
+    permissions.includes("reports.read") ||
+    roles.some((role) =>
+      ["super-admin", "SUPER_ADMIN", "SUPPORT_ADMIN", "OPERATIONS_ADMIN"].includes(role)
+    );
+
+  useEffect(() => {
+    loadPermissions().catch(() => {
+      // Existing navigation remains usable if the permission refresh fails.
+    });
+  }, [loadPermissions]);
 
   const handleLogout = async () => {
     await logout();
@@ -78,6 +94,12 @@ const Sidebar = ({ closeDrawer }) => {
       label: "Bulk Email",
       Link: "/bulk-email",
     },
+    {
+      icon: <MessageSquare className="w-[18px] h-[18px]" />,
+      label: "Support Messages",
+      Link: "/support",
+      permission: "reports.read",
+    },
     // {
     //   icon: <Sliders className="w-[18px] h-[18px]" />,
     //   label: "Configure",
@@ -100,7 +122,7 @@ const Sidebar = ({ closeDrawer }) => {
 
         {/* Navigation items list */}
         <div className="flex-1 overflow-y-auto px-4 py-2 space-y-1 select-none">
-          {menuItems.map((item) => {
+          {menuItems.filter((item) => !item.permission || (item.permission === "reports.read" && canReadSupport)).map((item) => {
             const isActive = location.pathname === item.Link || (item.Link === "/" && location.pathname === "/dashboard");
 
             return (

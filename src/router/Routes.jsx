@@ -15,7 +15,7 @@ import PaymentDetails from "../Pages/PaymentDetails/PaymentDetails";
 import Payments from "../Pages/Payments/Payments";
 import Customers from "../Pages/Customers/Customers";
 import CustomerDetails from "../Pages/CustomerDetails/CustomerDetails";
-import Support from "../Pages/Support/Support";
+import SupportMessages from "../Pages/SupportMessages/SupportMessages";
 import Notifications from "../Pages/Notifications/Notifications";
 import Users from "../Pages/Users/Users";
 import Earning from "../Pages/Earning/Earning";
@@ -68,7 +68,7 @@ export const router = createBrowserRouter([
           {path: "/payment-details" , element: <PaymentDetails/>},
            {path: "/customers" , element: <Customers/>},
           {path: "/customer/:id" , element: <CustomerDetails/>},
-          { path: "/support", element: <Support /> },
+          { path: "/support", element: <SupportMessages /> },
           { path: "/settings", element: <Settings/> },
           { path: "/settings/change-password", element: <ChangePassword/> },
           { path: "/settings/forgot-password", element: <ForgotPassword/> },
