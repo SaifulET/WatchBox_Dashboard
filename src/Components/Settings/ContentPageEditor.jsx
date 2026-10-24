@@ -14,6 +14,7 @@ const defaultCopy = {
   about: '',
   'privacy-policy': '',
   terms: '',
+  'account-deletion': '',
 };
 
 const ContentPageEditor = ({ slug, title }) => {

@@ -7,3 +7,43 @@
     width: calc(100% - 18rem);
   }
 
+.legal-prose {
+  color: #1f2937;
+  font-size: 15px;
+  line-height: 1.7;
+}
+
+.legal-prose h2,
+.legal-prose h3 {
+  color: #002B49;
+  font-weight: 700;
+  margin: 1.5rem 0 0.6rem;
+}
+
+.legal-prose p,
+.legal-prose ul,
+.legal-prose ol {
+  margin-bottom: 0.9rem;
+}
+
+.legal-prose ul,
+.legal-prose ol {
+  padding-left: 1.25rem;
+}
+
+.legal-prose ul {
+  list-style: disc;
+}
+
+.legal-prose ol {
+  list-style: decimal;
+}
+
+.legal-prose li {
+  margin-bottom: 0.35rem;
+}
+
+.legal-prose a {
+  color: #0284c7;
+}
+

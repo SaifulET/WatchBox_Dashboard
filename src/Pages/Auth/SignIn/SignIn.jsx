@@ -175,13 +175,20 @@ const SignIn = () => {
             </Form.Item>
           </Form>
 
-          <div className="text-center mt-8">
+          <div className="text-center mt-8 space-y-3">
             <span className="text-[11px] text-gray-400 font-medium">
               Need technical assistance?{" "}
-              <a href="mailto:admin@chronocore.com" className="text-sky-500 hover:text-sky-600 transition-colors font-semibold">
-                Contact System Admin
-              </a>
+              <Link to="/contact" className="text-sky-500 hover:text-sky-600 transition-colors font-semibold">
+                Contact support
+              </Link>
             </span>
+            <div className="flex flex-wrap items-center justify-center gap-x-3 gap-y-1 text-[11px] text-gray-400">
+              <Link to="/privacy-policy" className="hover:text-sky-600">Privacy Policy</Link>
+              <span>•</span>
+              <Link to="/terms" className="hover:text-sky-600">Terms and Conditions</Link>
+              <span>•</span>
+              <Link to="/account-deletion" className="hover:text-sky-600">Delete Account</Link>
+            </div>
           </div>
         </div>
       </div>

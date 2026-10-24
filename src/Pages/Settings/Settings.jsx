@@ -10,6 +10,7 @@ const Settings = () => {
     { label: 'Privacy Policy', path: '/settings/privacy-policy' },
     { label: 'Terms & Conditions', path: '/settings/terms-conditions' },
     { label: 'About Us', path: '/settings/about-us' },
+    { label: 'Account Deletion Method', path: '/settings/account-deletion' },
   ];
 
   return (

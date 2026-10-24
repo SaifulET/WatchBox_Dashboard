@@ -33,6 +33,12 @@ import VerifyOtp from "../Pages/Settings/VerifyOtp";
 import PrivacyPolicy from "../Pages/Settings/PrivacyPolicy";
 import TermsConditions from "../Pages/Settings/TermsConditions";
 import AboutUs from "../Pages/Settings/AboutUs";
+import AccountDeletionSettings from "../Pages/Settings/AccountDeletion";
+import PublicLayout from "../Layout/Public/PublicLayout";
+import PublicPrivacyPolicy from "../Pages/Public/PrivacyPolicy";
+import PublicTermsConditions from "../Pages/Public/TermsConditions";
+import PublicContact from "../Pages/Public/Contact";
+import PublicAccountDeletion from "../Pages/Public/AccountDeletion";
 
 export const router = createBrowserRouter([
   {
@@ -50,6 +56,18 @@ export const router = createBrowserRouter([
   {
     path: "/new-password",
     element: <NewPass />,
+  },
+  {
+    element: <PublicLayout />,
+    children: [
+      { path: "/privacy-policy", element: <PublicPrivacyPolicy /> },
+      { path: "/privacy", element: <PublicPrivacyPolicy /> },
+      { path: "/terms", element: <PublicTermsConditions /> },
+      { path: "/terms-and-conditions", element: <PublicTermsConditions /> },
+      { path: "/contact", element: <PublicContact /> },
+      { path: "/account-deletion", element: <PublicAccountDeletion /> },
+      { path: "/delete-account", element: <PublicAccountDeletion /> },
+    ],
   },
   {
     element: <PrivateRoute />,
@@ -76,6 +94,7 @@ export const router = createBrowserRouter([
           { path: "/settings/privacy-policy", element: <PrivacyPolicy/> },
           { path: "/settings/terms-conditions", element: <TermsConditions/> },
           { path: "/settings/about-us", element: <AboutUs/> },
+          { path: "/settings/account-deletion", element: <AccountDeletionSettings/> },
           { path: "/notifications", element: <Notifications /> },
           { path: "/users", element: <Users /> },
           { path: "/earning", element: <Earning /> },
