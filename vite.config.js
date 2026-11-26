@@ -8,6 +8,8 @@ const require = createRequire(import.meta.url);
 export default defineConfig({
   plugins: [react()],
   server: {
+    host: true,
+    allowedHosts: true,
     proxy: {
       "/api/v1/public": {
         target: "http://localhost:4000",
